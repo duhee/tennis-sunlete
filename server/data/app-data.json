@@ -1,0 +1,430 @@
+{
+  "users": [
+    {
+      "id": "1",
+      "name": "장두희(마스터)",
+      "total_sessions": 20,
+      "attended_sessions": 18,
+      "wins": 21,
+      "losses": 10,
+      "phoneLast4": "1001"
+    },
+    {
+      "id": "2",
+      "name": "변주혜",
+      "total_sessions": 14,
+      "attended_sessions": 10,
+      "wins": 13,
+      "losses": 9,
+      "phoneLast4": "1002"
+    },
+    {
+      "id": "3",
+      "name": "최혜인",
+      "total_sessions": 11,
+      "attended_sessions": 6,
+      "wins": 7,
+      "losses": 8,
+      "phoneLast4": "1003"
+    },
+    {
+      "id": "4",
+      "name": "박정민",
+      "total_sessions": 19,
+      "attended_sessions": 15,
+      "wins": 17,
+      "losses": 12,
+      "phoneLast4": "1004"
+    },
+    {
+      "id": "5",
+      "name": "남지현",
+      "total_sessions": 15,
+      "attended_sessions": 10,
+      "wins": 9,
+      "losses": 12,
+      "phoneLast4": "1005"
+    },
+    {
+      "id": "6",
+      "name": "박세진",
+      "total_sessions": 16,
+      "attended_sessions": 11,
+      "wins": 14,
+      "losses": 12,
+      "phoneLast4": "1006"
+    },
+    {
+      "id": "7",
+      "name": "홍미애",
+      "total_sessions": 13,
+      "attended_sessions": 7,
+      "wins": 6,
+      "losses": 10,
+      "phoneLast4": "1007"
+    },
+    {
+      "id": "8",
+      "name": "이예원",
+      "total_sessions": 11,
+      "attended_sessions": 5,
+      "wins": 5,
+      "losses": 8,
+      "phoneLast4": "1008"
+    },
+    {
+      "id": "9",
+      "name": "이은영",
+      "total_sessions": 13,
+      "attended_sessions": 8,
+      "wins": 10,
+      "losses": 11,
+      "phoneLast4": "1009"
+    },
+    {
+      "id": "10",
+      "name": "한채아",
+      "total_sessions": 12,
+      "attended_sessions": 6,
+      "wins": 7,
+      "losses": 6,
+      "phoneLast4": "1010"
+    },
+    {
+      "id": "guest-1775706658739",
+      "name": "강동원",
+      "gender": "M",
+      "isGuest": true,
+      "total_sessions": 0,
+      "attended_sessions": 0,
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "guest-1775706695351",
+      "name": "박지성",
+      "gender": "M",
+      "isGuest": true,
+      "total_sessions": 0,
+      "attended_sessions": 0,
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "guest-1775706707649",
+      "name": "황준상",
+      "gender": "M",
+      "isGuest": true,
+      "total_sessions": 0,
+      "attended_sessions": 0,
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "guest-1775715258245",
+      "name": "강동원",
+      "gender": "M",
+      "isGuest": true,
+      "total_sessions": 0,
+      "attended_sessions": 0,
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "guest-1775715301821",
+      "name": "황준상",
+      "gender": "M",
+      "isGuest": true,
+      "total_sessions": 0,
+      "attended_sessions": 0,
+      "wins": 0,
+      "losses": 0
+    }
+  ],
+  "schedules": [
+    {
+      "id": "w1",
+      "date": "2026-04-12",
+      "attendanceRequests": [
+        {
+          "userId": "3",
+          "requestedAt": "2026-04-01T09:10:00+09:00",
+          "status": "attend"
+        },
+        {
+          "userId": "5",
+          "requestedAt": "2026-04-01T09:15:00+09:00",
+          "status": "attend"
+        },
+        {
+          "userId": "9",
+          "requestedAt": "2026-04-01T09:24:00+09:00",
+          "status": "attend"
+        },
+        {
+          "userId": "4",
+          "requestedAt": "2026-04-01T09:30:00+09:00",
+          "status": "attend"
+        },
+        {
+          "userId": "10",
+          "requestedAt": "2026-04-01T09:20:00+09:00",
+          "status": "absent"
+        },
+        {
+          "userId": "guest-1775715258245",
+          "requestedAt": "2026-04-09T06:14:18.245Z",
+          "status": "attend"
+        },
+        {
+          "userId": "8",
+          "requestedAt": "2026-04-01T09:03:00+09:00",
+          "status": "absent"
+        },
+        {
+          "userId": "7",
+          "requestedAt": "2026-04-01T09:40:00+09:00",
+          "status": "absent"
+        },
+        {
+          "userId": "guest-1775715301821",
+          "requestedAt": "2026-04-09T06:15:01.821Z",
+          "status": "attend"
+        },
+        {
+          "userId": "2",
+          "requestedAt": "2026-04-01T09:45:00+09:00",
+          "status": "absent"
+        },
+        {
+          "userId": "6",
+          "requestedAt": "2026-04-09T06:14:32.073Z",
+          "status": "absent"
+        },
+        {
+          "userId": "1",
+          "requestedAt": "2026-04-09T09:45:16.408Z",
+          "status": "attend"
+        }
+      ],
+      "participants": [
+        "guest-1775715258245",
+        "guest-1775715301821",
+        "3",
+        "5",
+        "9",
+        "4"
+      ],
+      "waitlist": [
+        "1"
+      ],
+      "status": "draw_waiting",
+      "attendanceDeadline": "2026-04-12T15:00:00+09:00",
+      "maxParticipants": 6
+    },
+    {
+      "id": "w2",
+      "date": "2026-04-19",
+      "attendanceRequests": [
+        {
+          "userId": "5",
+          "requestedAt": "2026-04-07T10:04:00+09:00",
+          "status": "attend"
+        },
+        {
+          "userId": "9",
+          "requestedAt": "2026-04-07T10:06:00+09:00",
+          "status": "attend"
+        },
+        {
+          "userId": "guest-1775706658739",
+          "requestedAt": "2026-04-09T03:50:58.739Z",
+          "status": "attend"
+        },
+        {
+          "userId": "guest-1775706695351",
+          "requestedAt": "2026-04-09T03:51:35.351Z",
+          "status": "attend"
+        },
+        {
+          "userId": "guest-1775706707649",
+          "requestedAt": "2026-04-09T03:51:47.650Z",
+          "status": "attend"
+        },
+        {
+          "userId": "4",
+          "requestedAt": "2026-04-09T03:52:18.294Z",
+          "status": "attend"
+        },
+        {
+          "userId": "1",
+          "requestedAt": "2026-04-10T05:13:50.111Z",
+          "status": "absent"
+        }
+      ],
+      "participants": [
+        "guest-1775706658739",
+        "guest-1775706695351",
+        "guest-1775706707649",
+        "5",
+        "9",
+        "4"
+      ],
+      "waitlist": [],
+      "status": "open",
+      "attendanceDeadline": "2026-04-19T15:00:00+09:00",
+      "maxParticipants": 6
+    },
+    {
+      "id": "w3",
+      "date": "2026-04-26",
+      "attendanceRequests": [
+        {
+          "userId": "8",
+          "requestedAt": "2026-04-08T08:01:00+09:00",
+          "status": "attend"
+        },
+        {
+          "userId": "6",
+          "requestedAt": "2026-04-08T08:02:00+09:00",
+          "status": "attend"
+        },
+        {
+          "userId": "3",
+          "requestedAt": "2026-04-08T08:03:00+09:00",
+          "status": "attend"
+        },
+        {
+          "userId": "5",
+          "requestedAt": "2026-04-08T08:04:00+09:00",
+          "status": "attend"
+        },
+        {
+          "userId": "9",
+          "requestedAt": "2026-04-08T08:06:00+09:00",
+          "status": "attend"
+        },
+        {
+          "userId": "10",
+          "requestedAt": "2026-04-10T01:52:07.455Z",
+          "status": "absent"
+        }
+      ],
+      "participants": [
+        "8",
+        "3",
+        "5",
+        "9",
+        "6"
+      ],
+      "waitlist": [],
+      "status": "open",
+      "attendanceDeadline": "2026-04-26T15:00:00+09:00",
+      "maxParticipants": 6
+    }
+  ],
+  "doublesMatches": [
+    {
+      "id": "d1",
+      "scheduleId": "w1",
+      "date": "2026-04-12",
+      "teamA": [
+        "1",
+        "2"
+      ],
+      "teamB": [
+        "4",
+        "7"
+      ],
+      "scoreA": 6,
+      "scoreB": 1,
+      "result": "teamA",
+      "isConfirmed": true
+    },
+    {
+      "id": "d2",
+      "scheduleId": "w1",
+      "date": "2026-04-12",
+      "teamA": [
+        "3",
+        "5"
+      ],
+      "teamB": [
+        "9",
+        "10"
+      ],
+      "scoreA": null,
+      "scoreB": null,
+      "result": null,
+      "isConfirmed": true
+    },
+    {
+      "id": "d3",
+      "scheduleId": "w1",
+      "date": "2026-04-12",
+      "teamA": [
+        "6",
+        "8"
+      ],
+      "teamB": [
+        "1",
+        "4"
+      ],
+      "scoreA": 5,
+      "scoreB": 5,
+      "result": "draw",
+      "isConfirmed": true
+    },
+    {
+      "id": "d4",
+      "scheduleId": "w1",
+      "date": "2026-04-12",
+      "teamA": [
+        "2",
+        "7"
+      ],
+      "teamB": [
+        "3",
+        "9"
+      ],
+      "scoreA": null,
+      "scoreB": null,
+      "result": null,
+      "isConfirmed": true
+    },
+    {
+      "id": "d5",
+      "scheduleId": "w1",
+      "date": "2026-04-12",
+      "teamA": [
+        "1",
+        "5"
+      ],
+      "teamB": [
+        "4",
+        "10"
+      ],
+      "scoreA": 2,
+      "scoreB": 6,
+      "result": "teamB",
+      "isConfirmed": true
+    },
+    {
+      "id": "d6",
+      "scheduleId": "w1",
+      "date": "2026-04-12",
+      "teamA": [
+        "6",
+        "7"
+      ],
+      "teamB": [
+        "8",
+        "9"
+      ],
+      "scoreA": null,
+      "scoreB": null,
+      "result": null,
+      "isConfirmed": true
+    }
+  ]
+}
