@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { useAuth } from '../context/AuthContext';
-import { useAppData } from '../context/AppDataContext';
-import { PageLayout } from '../components/PageLayout';
+import { useAuth } from '../context/AuthContext.js';
+import { useAppData } from '../context/AppDataContext.js';
+import { PageLayout } from '../components/PageLayout.js';
 import {
   Calendar,
   User,
@@ -11,11 +11,11 @@ import {
   Share2,
   CircleHelp,
 } from 'lucide-react';
-import { getScheduleStatus, type WeeklyMatchSchedule } from '../data/mockData';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
-import { Toaster } from '../components/ui/sonner';
+import { getScheduleStatus, type WeeklyMatchSchedule } from '../data/mockData.js';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.js';
+import { Button } from '../components/ui/button.js';
+import { Badge } from '../components/ui/badge.js';
+import { Toaster } from '../components/ui/sonner.js';
 import { toast } from 'sonner';
 
 interface ScoreInput {
@@ -193,12 +193,19 @@ export function UserDashboard() {
 
   const handleShareWithPlayer = () => {
     if (!confirmedDate) return;
-    
-    let shareUrl = `${window.location.origin}/bracket/share?date=${confirmedDate}`;
+
+    // YYYY-MM-DD 형식으로 변환
+    const dateObj = new Date(confirmedDate);
+    const yyyy = dateObj.getFullYear();
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const dd = String(dateObj.getDate()).padStart(2, '0');
+    const dateKey = `${yyyy}-${mm}-${dd}`;
+
+    let shareUrl = `${window.location.origin}/bracket/share?date=${dateKey}`;
     if (searchPlayerName.trim()) {
       shareUrl += `&player=${encodeURIComponent(searchPlayerName)}`;
     }
-    
+
     navigator.clipboard.writeText(shareUrl);
     alert('공유 링크가 복사되었습니다!');
     setShowShareModal(false);
@@ -248,8 +255,8 @@ export function UserDashboard() {
             )}
 
             {confirmedMatches.map((match, idx) => {
-              const teamAUsers = match.teamA.map(id => getUserById(id)).filter(Boolean);
-              const teamBUsers = match.teamB.map(id => getUserById(id)).filter(Boolean);
+              const teamAUsers = match.teamA.map((id: string) => getUserById(id)).filter(Boolean);
+              const teamBUsers = match.teamB.map((id: string) => getUserById(id)).filter(Boolean);
               const userInMatch = isUserInMatch(match);
               const hasSavedScore = typeof match.scoreA === 'number' && typeof match.scoreB === 'number';
 
@@ -283,7 +290,7 @@ export function UserDashboard() {
                           <div className="min-w-0">
                             <p className="text-[11px] font-semibold tracking-widest text-gray-400 mb-2">TEAM A</p>
                             <div className="space-y-1">
-                              {teamAUsers.map(player => (
+                              {teamAUsers.map((player: any) => (
                                 <p key={player!.id} className="text-sm font-semibold leading-relaxed text-gray-900 break-words">
                                   {player!.name}
                                 </p>
@@ -312,7 +319,7 @@ export function UserDashboard() {
                           <div className="min-w-0 text-right">
                             <p className="text-[11px] font-semibold tracking-widest text-gray-400 mb-2">TEAM B</p>
                             <div className="space-y-1">
-                              {teamBUsers.map(player => (
+                              {teamBUsers.map((player: any) => (
                                 <p key={player!.id} className="text-sm font-semibold leading-relaxed text-gray-900 break-words">
                                   {player!.name}
                                 </p>
@@ -388,13 +395,13 @@ export function UserDashboard() {
           <div className="space-y-3">
             {upcomingSchedules.map((schedule, idx) => {
               const myStatus = getMyAttendanceStatus(schedule);
-              const applicants = schedule.participants.map(id => getUserById(id)).filter(Boolean);
-              const memberApplicants = applicants.filter(player => !player!.isGuest);
-              const guestApplicants = applicants.filter(player => player!.isGuest);
-              const waiters = schedule.waitlist.map(id => getUserById(id)).filter(Boolean);
+              const applicants = schedule.participants.map((id: string) => getUserById(id)).filter(Boolean);
+              const memberApplicants = applicants.filter((player: any) => !player!.isGuest);
+              const guestApplicants = applicants.filter((player: any) => player!.isGuest);
+              const waiters = schedule.waitlist.map((id: string) => getUserById(id)).filter(Boolean);
               const absentUsers = schedule.attendanceRequests
-                .filter(request => request.status === 'absent')
-                .map(request => getUserById(request.userId))
+                .filter((request: any) => request.status === 'absent')
+                .map((request: any) => getUserById(request.userId))
                 .filter(Boolean);
               const scheduleSeasonCode = getScheduleSeasonCode(schedule);
               const seasonMembers = users.filter(member => {
@@ -403,7 +410,7 @@ export function UserDashboard() {
                 return (member.activeSeasons ?? []).includes(scheduleSeasonCode);
               });
               const noResponseUsers = seasonMembers.filter(
-                member => !schedule.attendanceRequests.some(request => request.userId === member.id)
+                (member: any) => !schedule.attendanceRequests.some((request: any) => request.userId === member.id)
               );
               const scheduleStatus = getScheduleStatus(schedule);
               const isOpen = scheduleStatus === 'open';
@@ -509,7 +516,7 @@ export function UserDashboard() {
                       <p className="text-xs text-gray-500 mb-2">현재 참석자</p>
                       <div className="flex flex-wrap gap-2">
                         {memberApplicants.length > 0 ? (
-                          memberApplicants.map(player => (
+                          memberApplicants.map((player: any) => (
                             <span
                               key={player!.id}
                               className="px-2 py-1 bg-[#FFC1CC] rounded-md text-xs font-medium text-[#030213]"
@@ -528,7 +535,7 @@ export function UserDashboard() {
                       <p className="text-xs text-gray-500 mb-2">게스트</p>
                       <div className="flex flex-wrap gap-2">
                         {guestApplicants.length > 0 ? (
-                          guestApplicants.map(player => (
+                          guestApplicants.map((player: any) => (
                             <span
                               key={player!.id}
                               className="px-2 py-1 bg-[#FFC1CC] rounded-md text-xs font-medium text-[#030213]"
@@ -549,7 +556,7 @@ export function UserDashboard() {
                       <p className="text-xs text-gray-500 mb-2">참석 대기</p>
                       <div className="flex flex-wrap gap-2">
                         {waiters.length > 0 ? (
-                          waiters.map(player => (
+                          waiters.map((player: any) => (
                             <span
                               key={player!.id}
                               className="px-2 py-1 bg-white border border-gray-200 rounded-md text-xs text-gray-600"
@@ -568,7 +575,7 @@ export function UserDashboard() {
                       <p className="text-xs text-gray-500 mb-2">불참</p>
                       <div className="flex flex-wrap gap-2">
                         {absentUsers.length > 0 ? (
-                          absentUsers.map(player => (
+                          absentUsers.map((player: any) => (
                             <span
                               key={player!.id}
                               className="px-2 py-1 bg-white border border-gray-200 rounded-md text-xs text-gray-600"
