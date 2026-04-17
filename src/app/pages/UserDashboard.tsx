@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { useAppData } from '../context/AppDataContext.js';
 import { PageLayout } from '../components/PageLayout.js';

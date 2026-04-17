@@ -1,16 +1,16 @@
-import { createBrowserRouter, Navigate } from "react-router";
-import { LoginPage } from "./pages/LoginPage";
-import { UserDashboard } from "./pages/UserDashboard";
-import { MasterPage } from "./pages/MasterPage";
-import { ProfilePage } from "./pages/ProfilePage";
-import { SharedBracket } from "./pages/SharedBracket";
-import { NotFound } from "./pages/NotFound";
-import { ProtectedRoute } from "./components/ProtectedRoute";
+import { createBrowserRouter, Navigate } from "react-router-dom";
+import { LoginPage } from "./pages/LoginPage.js";
+import { UserDashboard } from "./pages/UserDashboard.js";
+import { MasterPage } from "./pages/MasterPage.js";
+import { ProfilePage } from "./pages/ProfilePage.js";
+import { SharedBracket } from "./pages/SharedBracket.js";
+import { NotFound } from "./pages/NotFound.js";
+import { ProtectedRoute } from "./components/ProtectedRoute.js";
 
 export const router = createBrowserRouter([
   {
     path: "/login",
-    Component: LoginPage,
+    element: <LoginPage />,
   },
   {
     path: "/",
@@ -38,10 +38,10 @@ export const router = createBrowserRouter([
   },
   {
     path: "/bracket/share",
-    Component: SharedBracket,
+    element: <SharedBracket />,
   },
   {
     path: "*",
-    Component: NotFound,
+    element: <NotFound />,
   },
 ]);
