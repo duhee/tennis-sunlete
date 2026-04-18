@@ -11,9 +11,21 @@ export function SharedBracket() {
   const shareDate = searchParams.get('date');
   const highlightPlayer = searchParams.get('player');
 
-  // 데이터 필터링 시 안정성 확보
+  // 다양한 date 포맷을 지원하는 날짜 비교 함수
+  const isSameDay = (dateStr1: string, dateStr2: string) => {
+    if (!dateStr1 || !dateStr2) return false;
+    const d1 = new Date(dateStr1);
+    const d2 = new Date(dateStr2);
+    return (
+      d1.getFullYear() === d2.getFullYear() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getDate() === d2.getDate()
+    );
+  };
+
+  // 데이터 필터링 시 안정성 확보 (날짜 비교 개선)
   const confirmedMatches = doublesMatches.filter(
-    (match: any) => match.isConfirmed && match.date === shareDate
+    (match: any) => match.isConfirmed && shareDate && isSameDay(match.date, shareDate)
   );
 
   // 날짜 포맷팅 함수 (예시: 2026-04-12 -> 26년 4월 12일)
