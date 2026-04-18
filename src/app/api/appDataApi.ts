@@ -1,4 +1,4 @@
-import type { DoublesMatch, User, WeeklyMatchSchedule } from '../data/mockData';
+import type { DoublesMatch, User, WeeklyMatchSchedule } from '../data/mockData.js';
 
 export interface PersistedData {
   users: User[];
@@ -6,7 +6,7 @@ export interface PersistedData {
   doublesMatches: DoublesMatch[];
 }
 
-const APP_DATA_API_URL = (import.meta.env.VITE_APP_DATA_API_URL || '').trim();
+const APP_DATA_API_URL = '/api/proxy';
 const APP_DATA_API_MODE = (import.meta.env.VITE_APP_DATA_API_MODE || 'local').trim().toLowerCase();
 
 function getEndpointUrl() {
