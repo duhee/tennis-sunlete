@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { useAppData } from '../context/AppDataContext';
-import { PageLayout } from '../components/PageLayout';
+import { useAuth } from '../context/AuthContext.js';
+import { useAppData } from '../context/AppDataContext.js';
+import { PageLayout } from '../components/PageLayout.js';
 import {
   User,
   TrendingDown,
@@ -16,9 +16,9 @@ import {
   Smartphone,
   Monitor,
 } from 'lucide-react';
-import { getAttendanceRate, getWinRate, getScheduleStatus, getTotalStats, seasonCodeToLabel, type User as UserType } from '../data/mockData';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
+import { getAttendanceRate, getWinRate, getScheduleStatus, getTotalStats, seasonCodeToLabel, type User as UserType } from '../data/mockData.js';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.js';
+import { Button } from '../components/ui/button.js';
 import {
   Table,
   TableBody,
@@ -26,11 +26,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../components/ui/table';
-import { Badge } from '../components/ui/badge';
+} from '../components/ui/table.js';
+import { Badge } from '../components/ui/badge.js';
 import { toast } from 'sonner';
-import { Toaster } from '../components/ui/sonner';
-import { useIsMobile } from '../components/ui/use-mobile';
+import { Toaster } from '../components/ui/sonner.js';
+import { useIsMobile } from '../components/ui/use-mobile.js';
 
 interface GeneratedMatch {
   id: string;
@@ -392,7 +392,7 @@ export function MasterPage() {
     // 해당 시즌 멤버만 정규 멤버로 취급, 나머지는 게스트
     const seasonMemberIds = new Set(selectedScheduleSeasonMembers.map(m => m.id));
     
-    return records.map(record => ({
+    return records.map((record: any) => ({
       ...record,
       isGuest: !seasonMemberIds.has(record.userId)
     }));
@@ -402,8 +402,8 @@ export function MasterPage() {
     if (!selectedSchedule) return [];
 
     return selectedSchedule.attendanceRequests
-      .filter(request => request.status === 'absent')
-      .map(request => getUserById(request.userId))
+      .filter((request: any) => request.status === 'absent')
+      .map((request: any) => getUserById(request.userId))
       .filter(Boolean) as UserType[];
   }, [selectedSchedule, users]);
 
@@ -411,7 +411,7 @@ export function MasterPage() {
     if (!selectedSchedule) return [];
 
     return selectedScheduleSeasonMembers.filter(
-      member => !selectedSchedule.attendanceRequests.some(request => request.userId === member.id)
+      member => !selectedSchedule.attendanceRequests.some((request: any) => request.userId === member.id)
     );
   }, [selectedSchedule, selectedScheduleSeasonMembers]);
 
@@ -426,7 +426,7 @@ export function MasterPage() {
 
   const allSeasons = useMemo(() => {
     const set = new Set<string>();
-    memberUsers.forEach(u => (u.activeSeasons ?? []).forEach(s => set.add(s)));
+    memberUsers.forEach(u => (u.activeSeasons ?? []).forEach((s: string) => set.add(s)));
     return Array.from(set).sort();
   }, [memberUsers]);
 
@@ -443,9 +443,9 @@ export function MasterPage() {
     const weekBySeasonDate: Record<string, number> = {};
 
     // 1) Build unique date list per season (sorted)
-    schedules.forEach(schedule => {
-      const seasonCode = getScheduleSeasonCode(schedule) ?? 'unknown';
-      const dateKey = toDateKey(schedule.date || schedule.attendanceDeadline || '');
+    schedules.forEach((st: any) => {
+      const seasonCode = getScheduleSeasonCode(st) ?? 'unknown';
+      const dateKey = toDateKey(st.date || st.attendanceDeadline || '');
       if (!seasonDateList[seasonCode]) seasonDateList[seasonCode] = [];
       if (!seasonDateList[seasonCode].includes(dateKey)) {
         seasonDateList[seasonCode].push(dateKey);
@@ -545,8 +545,8 @@ export function MasterPage() {
     setSeasonMemberDrafts(prev => {
       const next = { ...prev };
       const allS = new Set<string>();
-      memberUsers.forEach(u => (u.activeSeasons ?? []).forEach(s => allS.add(s)));
-      allS.forEach(season => {
+      memberUsers.forEach(u => (u.activeSeasons ?? []).forEach((s: string) => allS.add(s)));
+      allS.forEach((season: string) => {
         if (next[season] === undefined) {
           next[season] = memberUsers
             .filter(u => (u.activeSeasons ?? []).includes(season))
@@ -637,14 +637,14 @@ export function MasterPage() {
   const handleAddSeason = () => {
     const s = newSeasonSelect;
     if (!s) return;
-    setSeasonMemberDrafts(prev => (prev[s] !== undefined ? prev : { ...prev, [s]: [] }));
+    setSeasonMemberDrafts((prev: any) => (prev[s] !== undefined ? prev : { ...prev, [s]: [] }));
     setSelectedSeason(s);
     setNewSeasonSelect('');
     // 기존 멤버 데이터에서 total_sessions 초기값 로드
-    setSeasonTotalSessionsDraft(prev => {
+    setSeasonTotalSessionsDraft((prev: any) => {
       if (prev[s] !== undefined) return prev;
-      const existing = memberUsers.find(u => (u.activeSeasons ?? []).includes(s));
-      const val = existing?.seasonStats?.find(st => st.seasonCode === s)?.total_sessions ?? 0;
+      const existing = memberUsers.find((u: any) => (u.activeSeasons ?? []).includes(s));
+      const val = existing?.seasonStats?.find((st: any) => st.seasonCode === s)?.total_sessions ?? 0;
       return { ...prev, [s]: String(val) };
     });
   };
@@ -703,18 +703,18 @@ export function MasterPage() {
       const isActive = activeIds.has(member.id);
       const updated = isActive
         ? current.includes(season) ? current : [...current, season]
-        : current.filter(s => s !== season);
+        : current.filter((s: string) => s !== season);
       const changed =
         updated.length !== current.length ||
-        updated.some(s => !current.includes(s));
+        updated.some((s: string) => !current.includes(s));
       if (changed) updateUserActiveSeasons(member.id, updated);
 
       // 해당 시즌에 속한 멤버의 total_sessions 업데이트
       if (isActive) {
         const existingStats = member.seasonStats ?? [];
-        const hasEntry = existingStats.some(s => s.seasonCode === season);
+        const hasEntry = existingStats.some((s: any) => s.seasonCode === season);
         const updatedStats = hasEntry
-          ? existingStats.map(s =>
+          ? existingStats.map((s: any) =>
               s.seasonCode === season ? { ...s, total_sessions: totalSessions } : s
             )
           : [...existingStats, { seasonCode: season, total_sessions: totalSessions, attended_sessions: 0, wins: 0, losses: 0 }];
@@ -916,7 +916,7 @@ export function MasterPage() {
                     >
                       <option value="">불참자 선택</option>
                       <option value="empty-slot">빈자리(미응답/미정)</option>
-                      {selectedSchedule.participants.map(id => {
+                      {selectedSchedule.participants.map((id: string) => {
                         const user = getUserById(id);
                         return user ? (
                           <option key={id} value={id}>{user.name}{user.isGuest ? ' (게스트)' : ''}</option>
@@ -1037,7 +1037,7 @@ export function MasterPage() {
               {selectedSchedule ? (
                 isMobilePreview ? (
                   <div className="space-y-2">
-                    {attendanceRecords.map((row, index) => (
+                    {attendanceRecords.map((row: any, index: number) => (
                       <div key={row.userId} className="rounded-lg border border-gray-200 px-3 py-3 space-y-2"
                         style={{
                           backgroundColor: row.userId.startsWith('guest-') ? '#F8FCFF' : row.placement === 'waitlist' ? '#FFFEF0' : '#FFFFFF',
@@ -1083,7 +1083,7 @@ export function MasterPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {attendanceRecords.map((row, index) => (
+                        {attendanceRecords.map((row: any, index: number) => (
                           <TableRow key={row.userId}
                             style={{
                               backgroundColor: row.userId.startsWith('guest-') ? '#F8FCFF' : row.placement === 'waitlist' ? '#FFFEF0' : undefined,
@@ -1328,13 +1328,13 @@ export function MasterPage() {
               }
               return isMobilePreview ? (
                 <div className="space-y-2">
-                  {usersToShow.map((user, index) => {
+                  {usersToShow.map((user: any, index: number) => {
                     // 시즌별 통계 추출
                     let totals = getTotalStats(user);
                     let attendanceRate = getAttendanceRate(user);
                     let winRate = getWinRate(user);
                     if (selectedAttendanceSeasonFilter) {
-                      const stat = (user.seasonStats ?? []).find(s => s.seasonCode === selectedAttendanceSeasonFilter);
+                      const stat = (user.seasonStats ?? []).find((s: any) => s.seasonCode === selectedAttendanceSeasonFilter);
                       totals = stat ? { ...totals, ...stat } : totals;
                       attendanceRate = stat ? Math.round((stat.attended_sessions / (stat.total_sessions || 1)) * 100) : attendanceRate;
                       winRate = stat ? Math.round((stat.wins / ((stat.wins + stat.losses) || 1)) * 100) : winRate;
@@ -1386,7 +1386,7 @@ export function MasterPage() {
                         let attendanceRate = getAttendanceRate(user);
                         let winRate = getWinRate(user);
                         if (selectedAttendanceSeasonFilter) {
-                          const stat = (user.seasonStats ?? []).find(s => s.seasonCode === selectedAttendanceSeasonFilter);
+                          const stat = (user.seasonStats ?? []).find((s: any) => s.seasonCode === selectedAttendanceSeasonFilter);
                           totals = stat ? { ...totals, ...stat } : totals;
                           attendanceRate = stat ? Math.round((stat.attended_sessions / (stat.total_sessions || 1)) * 100) : attendanceRate;
                           winRate = stat ? Math.round((stat.wins / ((stat.wins + stat.losses) || 1)) * 100) : winRate;
@@ -1499,16 +1499,16 @@ export function MasterPage() {
           <CardContent>
             {/* Season tabs + add */}
             <div className="flex flex-wrap gap-2 mb-4">
-              {allSeasons.map(s => (
+              {allSeasons.map((s: string) => (
                 <button
                   key={s}
                   onClick={() => {
                     setSelectedSeason(s);
                     // 시즌 선택 시 total_sessions 초기값 로드
-                    setSeasonTotalSessionsDraft(prev => {
+                    setSeasonTotalSessionsDraft((prev: any) => {
                       if (prev[s] !== undefined) return prev;
-                      const existing = memberUsers.find(u => (u.activeSeasons ?? []).includes(s));
-                      const val = existing?.seasonStats?.find(st => st.seasonCode === s)?.total_sessions ?? 0;
+                      const existing = memberUsers.find((u: any) => (u.activeSeasons ?? []).includes(s));
+                      const val = existing?.seasonStats?.find((st: any) => st.seasonCode === s)?.total_sessions ?? 0;
                       return { ...prev, [s]: String(val) };
                     });
                   }}
@@ -1531,7 +1531,7 @@ export function MasterPage() {
                   className="rounded-md border border-gray-200 px-2 py-1 text-sm"
                 >
                   <option value="">시즌 선택</option>
-                  {SEASON_OPTIONS.filter(s => !allSeasons.includes(s)).map(s => (
+                  {SEASON_OPTIONS.filter((s: string) => !allSeasons.includes(s)).map((s: string) => (
                     <option key={s} value={s}>{seasonCodeToLabel(s)}</option>
                   ))}
                 </select>
@@ -1626,7 +1626,7 @@ export function MasterPage() {
 
                 {showAllMembersForSeason && (
                   <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                    {memberUsers.map(member => {
+                    {memberUsers.map((member: any) => {
                       const checked = (seasonMemberDrafts[selectedSeason] ?? []).includes(member.id);
                       return (
                         <label

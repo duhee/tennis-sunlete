@@ -5,11 +5,11 @@ import { router } from './routes.js';
 
 function App() {
   return (
-    <AuthProvider>
-      <AppDataProvider>
+    <AppDataProvider>
+      <AuthProvider>
         <RouterProvider router={router} />
-      </AppDataProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </AppDataProvider>
   );
 }
 

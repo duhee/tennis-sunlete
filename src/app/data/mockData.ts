@@ -1,3 +1,9 @@
+// AppData type for global use
+export type AppData = {
+  users: User[];
+  schedules: WeeklyMatchSchedule[];
+  doublesMatches: DoublesMatch[];
+};
 // Shared data types and utility functions
 
 export interface SeasonStats {
@@ -13,6 +19,7 @@ export interface User {
   name: string;
   gender: 'M' | 'F' | 'W';
   phoneLast4?: string;
+  password?: string; // 로그인용 비밀번호(plain, 예시)
   activeSeasons?: string[];
   isWithdrawn?: boolean;
   seasonStats?: SeasonStats[]; // Per-season statistics
@@ -66,14 +73,15 @@ export interface AttendanceRecordRow {
 
 export const seasonCodeToLabel = (code: string): string => {
   const m = code.match(/^(\d{2})S([1-4])$/);
-  if (!m) return code;
-  const yy = parseInt(m[1], 10);
+  if (!m) return '알 수 없음';
+  const yy = parseInt(m[1], 10); // Extract the two-digit year
   const s = parseInt(m[2], 10);
   const ranges: Record<number, string> = { 1: '2-4월', 2: '5-7월', 3: '8-10월', 4: '11월' };
+  const fullYear = 2000 + yy; // Convert to four-digit year
   if (s === 4) {
-    return `${yy}년 11월-${yy + 1}년 1월`;
+    return `${fullYear}년 11월-${fullYear + 1}년 1월`;
   }
-  return `${yy}년 ${ranges[s]}`;
+  return `${fullYear}년 ${ranges[s]}`;
 };
 
 // Get current season code based on today's date

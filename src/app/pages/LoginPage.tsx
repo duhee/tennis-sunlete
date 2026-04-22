@@ -1,45 +1,43 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { useAppData } from '../context/AppDataContext';
-import { Card, CardContent, CardHeader } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
+import { useAuth } from '../context/AuthContext.js';
+import { useAppData } from '../context/AppDataContext.js';
+import { Card, CardContent, CardHeader } from '../components/ui/card.js';
+import { Button } from '../components/ui/button.js';
+import { Input } from '../components/ui/input.js';
+import { Label } from '../components/ui/label.js';
 
 export function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login } = useAuth();
-  const { getUserByName, users } = useAppData();
+   const { getUserByName, users, hydrated } = useAppData();
   const navigate = useNavigate();
 
   const isValidPhoneLast4 = (value: string) => /^\d{4}$/.test(value);
-  const normalizeName = (value: string) => value.replace(/\s+/g, '').trim();
+  // 이름에서 공백, 괄호, '마스터' 등 부가 텍스트 제거
+  const normalizeName = (value: string) => value.replace(/\s+/g, '').replace(/\(.*?\)/g, '').replace(/마스터/g, '').trim();
   const isMasterName = (value: string) => normalizeName(value) === '장두희';
 
   const findUserByFlexibleName = (rawName: string) => {
     const normalizedInput = normalizeName(rawName);
 
+    // 1. 완전 일치
     const direct = getUserByName(rawName.trim());
     if (direct) return direct;
 
-    return users.find(user => {
+    // 2. normalizeName 처리 후 일치
+    return users.find((user: any) => {
       const target = normalizeName(user.name || '');
-      if (target === normalizedInput) return true;
-
-      if (isMasterName(rawName)) {
-        const stripped = target.replace('(마스터)', '');
-        return stripped === '장두희';
-      }
-
-      return false;
+      return target === normalizedInput;
     });
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    console.log('[LoginPage] handleLogin called', { username, password });
+    console.log('[LoginPage] users from context', users, 'hydrated:', hydrated);
     setError('');
 
     if (!username || !password) {
@@ -47,8 +45,10 @@ export function LoginPage() {
       return;
     }
 
-    if (!isValidPhoneLast4(password)) {
-      setError('비밀번호는 휴대폰 뒷번호 4자리를 입력해주세요');
+
+    // 비밀번호는 최소 4자 이상만 체크 (예시)
+    if (password.length < 4) {
+      setError('비밀번호를 4자 이상 입력해주세요');
       return;
     }
 
@@ -59,6 +59,7 @@ export function LoginPage() {
     }
 
     const user = findUserByFlexibleName(normalized);
+    console.log('[LoginPage] user found', user);
 
     if (!user || user.isGuest || user.id.startsWith('guest-')) {
       setError('등록된 회원만 로그인할 수 있습니다');
@@ -70,18 +71,20 @@ export function LoginPage() {
       return;
     }
 
+
+
     if (!user.phoneLast4) {
-      setError('회원 비밀번호(휴대폰 뒷번호)가 등록되지 않았습니다. 관리자에게 문의해주세요');
+      setError('회원 비밀번호(휴대폰 뒷자리)가 등록되지 않았습니다. 관리자에게 문의해주세요');
       return;
     }
 
     if (password !== user.phoneLast4) {
-      setError('비밀번호가 일치하지 않습니다');
+      setError('비밀번호(휴대폰 뒷자리)가 일치하지 않습니다');
       return;
     }
 
-    const loginName = isMasterName(normalized) ? '장두희' : user.name;
-    const success = login(loginName, password);
+    const success = login(user, password);
+    console.log('[LoginPage] login result', success);
     if (!success) {
       setError('로그인 처리 중 오류가 발생했습니다');
       return;
@@ -155,7 +158,7 @@ export function LoginPage() {
             >
               <p className="mb-2 font-medium">로그인 안내</p>
               <p>등록된 회원만 로그인 가능합니다</p>
-              <p className="mt-2 text-gray-500">비밀번호: 휴대폰 뒷번호 4자리</p>
+              <p className="mt-2 text-gray-500">비밀번호: 회원 가입 시 등록된 값</p>
             </div>
           </form>
         </CardContent>

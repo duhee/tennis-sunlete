@@ -2,22 +2,33 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 
 const AUTH_STORAGE_KEY = 'tennis-app-auth';
 
+import type { User } from '../data/mockData.js';
 interface AuthContextType {
   currentUser: string | null;
   isAdmin: boolean;
-  login: (username: string, password: string) => boolean;
+  login: (user: User | null, password: string) => boolean;
   logout: () => void;
+  hydrated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+
+
+import { useAppData } from './AppDataContext.js';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const { getUserByName } = useAppData();
 
   useEffect(() => {
     const savedAuth = window.localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!savedAuth) return;
+    if (!savedAuth) {
+      setHydrated(true);
+      return;
+    }
 
     try {
       const parsed = JSON.parse(savedAuth) as { currentUser: string | null; isAdmin: boolean };
@@ -27,6 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch {
       window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    } finally {
+      setHydrated(true);
     }
   }, []);
 
@@ -48,14 +61,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return normalized === '장두희';
   };
 
-  const login = (username: string, password: string): boolean => {
-    const normalized = username.trim();
-    if (!normalized || !password) {
+  const login = (user: User | null, password: string): boolean => {
+    console.log('[AuthContext] login called', user, password);
+    if (!user || !password || !user.phoneLast4) {
+      console.log('[AuthContext] login fail: missing user or phoneLast4');
       return false;
     }
-
-    setCurrentUser(normalized);
-    setIsAdmin(isMasterName(normalized));
+    if (user.phoneLast4 !== password) {
+      console.log('[AuthContext] login fail: phoneLast4 mismatch');
+      return false;
+    }
+    setCurrentUser(user.name);
+    setIsAdmin(isMasterName(user.name));
+    console.log('[AuthContext] login success', user.name);
     return true;
   };
 
@@ -65,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, isAdmin, login, logout }}>
+    <AuthContext.Provider value={{ currentUser, isAdmin, login, logout, hydrated }}>
       {children}
     </AuthContext.Provider>
   );

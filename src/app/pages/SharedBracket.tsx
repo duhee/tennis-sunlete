@@ -8,8 +8,36 @@ export function SharedBracket() {
   const { doublesMatches, getUserById } = useAppData();
   const [searchParams] = useSearchParams();
 
-  const shareDate = searchParams.get('date');
+
   const highlightPlayer = searchParams.get('player');
+
+  // 오늘 날짜 (로컬 기준)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // 모든 확정된 대진 날짜(중복 제거, 오름차순)
+  const confirmedDates = Array.from(
+    new Set(
+      doublesMatches
+        .filter((m: any) => m.isConfirmed && m.date)
+        .map((m: any) => {
+          const d = new Date(m.date);
+          d.setHours(0, 0, 0, 0);
+          return d.getTime();
+        })
+    )
+  ).sort((a, b) => a - b);
+
+  // date 파라미터가 있으면 사용, 없으면 오늘 이후 가장 가까운 대진 날짜 사용
+  let shareDate = searchParams.get('date');
+  if (!shareDate) {
+    const nextDate = confirmedDates.find(ts => ts >= today.getTime());
+    if (nextDate) {
+      // YYYY-MM-DD 포맷으로 변환
+      const d = new Date(nextDate);
+      shareDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+  }
 
   // 다양한 date 포맷을 지원하는 날짜 비교 함수
   const isSameDay = (dateStr1: string, dateStr2: string) => {
@@ -64,7 +92,7 @@ export function SharedBracket() {
         </div>
 
         <div className="mb-8">
-          {/* shareDate가 있을 때만 공지/날짜 영역 렌더링 */}
+          {/* 상단 날짜 영역: 실제 노출되는 대진 날짜만 표시 */}
           {shareDate && confirmedMatches.length > 0 && (
             <div className="mb-6 rounded-xl border bg-white p-4">
               <div className="mb-4">

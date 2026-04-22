@@ -7,8 +7,11 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { currentUser } = useAuth();
+  const { currentUser, hydrated } = useAuth();
 
+  if (!hydrated) {
+    return <div style={{ padding: 40, textAlign: 'center' }}>로딩 중...</div>;
+  }
   if (!currentUser) {
     return <Navigate to="/login" replace />;
   }

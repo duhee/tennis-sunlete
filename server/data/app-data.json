@@ -7,7 +7,8 @@
       "attended_sessions": 18,
       "wins": 21,
       "losses": 10,
-      "phoneLast4": "1001"
+      "phoneLast4": "1001",
+      "password": "pass1234"
     },
     {
       "id": "2",
@@ -16,7 +17,8 @@
       "attended_sessions": 10,
       "wins": 13,
       "losses": 9,
-      "phoneLast4": "1002"
+      "phoneLast4": "1002",
+      "password": "pass1234"
     },
     {
       "id": "3",
@@ -25,7 +27,8 @@
       "attended_sessions": 6,
       "wins": 7,
       "losses": 8,
-      "phoneLast4": "1003"
+      "phoneLast4": "1003",
+      "password": "pass1234"
     },
     {
       "id": "4",
@@ -34,7 +37,8 @@
       "attended_sessions": 15,
       "wins": 17,
       "losses": 12,
-      "phoneLast4": "1004"
+      "phoneLast4": "1004",
+      "password": "pass1234"
     },
     {
       "id": "5",
@@ -43,7 +47,8 @@
       "attended_sessions": 10,
       "wins": 9,
       "losses": 12,
-      "phoneLast4": "1005"
+      "phoneLast4": "1005",
+      "password": "pass1234"
     },
     {
       "id": "6",
@@ -52,7 +57,8 @@
       "attended_sessions": 11,
       "wins": 14,
       "losses": 12,
-      "phoneLast4": "1006"
+      "phoneLast4": "1006",
+      "password": "pass1234"
     },
     {
       "id": "7",
@@ -61,7 +67,8 @@
       "attended_sessions": 7,
       "wins": 6,
       "losses": 10,
-      "phoneLast4": "1007"
+      "phoneLast4": "1007",
+      "password": "pass1234"
     },
     {
       "id": "8",
@@ -70,7 +77,8 @@
       "attended_sessions": 5,
       "wins": 5,
       "losses": 8,
-      "phoneLast4": "1008"
+      "phoneLast4": "1008",
+      "password": "pass1234"
     },
     {
       "id": "9",
@@ -79,7 +87,8 @@
       "attended_sessions": 8,
       "wins": 10,
       "losses": 11,
-      "phoneLast4": "1009"
+      "phoneLast4": "1009",
+      "password": "pass1234"
     },
     {
       "id": "10",
@@ -88,7 +97,8 @@
       "attended_sessions": 6,
       "wins": 7,
       "losses": 6,
-      "phoneLast4": "1010"
+      "phoneLast4": "1010",
+      "password": "pass1234"
     },
     {
       "id": "guest-1775706658739",

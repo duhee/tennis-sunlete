@@ -1,66 +1,70 @@
-import type { DoublesMatch, User, WeeklyMatchSchedule } from '../data/mockData.js';
+import type { AppData } from '../data/mockData.js'; // (경로는 기존 설정에 맞게 유지하세요)
+import { supabase } from './supabaseClient.js';
 
-export interface PersistedData {
-  users: User[];
-  schedules: WeeklyMatchSchedule[];
-  doublesMatches: DoublesMatch[];
+export async function fetchAppData(): Promise<AppData> {
+  try {
+    // 🚀 복잡한 엣지 함수(invoke) 대신, 4개의 테이블을 직통으로 한 번에 가져옵니다! (CORS 에러 없음)
+    const [usersRes, schedulesRes, requestsRes, matchesRes] = await Promise.all([
+      supabase.from('users').select('*'),
+      supabase.from('schedules').select('*'),
+      supabase.from('attendance_requests').select('*'),
+      supabase.from('doubles_matches').select('*')
+    ]);
+
+    // users 매핑 (필드명 변환)
+    const users = (usersRes.data || []).map(user => ({
+      id: user.id,
+      name: user.name,
+      gender: user.gender,
+      phoneLast4: user.phone_last_4,
+      isGuest: user.is_guest,
+      isWithdrawn: user.is_withdrawn,
+      activeSeasons: user.active_seasons,
+      seasonStats: user.season_stats,
+    }));
+
+    // schedules 매핑 (attendanceRequests 포함)
+    const schedules = (schedulesRes.data || []).map(schedule => {
+      const scheduleRequests = (requestsRes.data || [])
+        .filter(req => req.schedule_id === schedule.id)
+        .map(req => ({
+          userId: req.user_id,
+          requestedAt: req.requested_at,
+          status: req.status,
+        }));
+
+      return {
+        ...schedule,
+        maxParticipants: schedule.max_participants,
+        attendanceDeadline: schedule.attendance_deadline,
+        attendanceRequests: scheduleRequests,
+      };
+    });
+
+    // matches 매핑 (필드명 변환)
+    const doublesMatches = (matchesRes.data || []).map(match => ({
+      ...match,
+      scheduleId: match.schedule_id,
+      teamA: match.team_a,
+      teamB: match.team_b,
+      scoreA: match.score_a,
+      scoreB: match.score_b,
+      isConfirmed: match.is_confirmed,
+    }));
+
+    // console.log('✅ Supabase 데이터 로드 성공!', { users, schedules, doublesMatches });
+    return { users, schedules, doublesMatches };
+    
+  } catch (error) {
+    console.error('데이터 로드 중 오류:', error);
+    return { users: [], schedules: [], doublesMatches: [] };
+  }
 }
 
-const APP_DATA_API_URL = (import.meta.env.VITE_APP_DATA_API_URL || '').trim();
-const APP_DATA_API_MODE = (import.meta.env.VITE_APP_DATA_API_MODE || 'local').trim().toLowerCase();
-
-function getEndpointUrl() {
-  if (APP_DATA_API_MODE !== 'apps-script' || !APP_DATA_API_URL) {
-    throw new Error('Google Sheets 연동 전용 모드입니다. .env.local의 Apps Script 설정을 확인해주세요.');
-  }
-  return APP_DATA_API_URL;
+export async function saveAppData(data: AppData): Promise<void> {
+  console.warn("전체 덮어쓰기 기능은 4개 테이블 정규화 구조에서 권장되지 않습니다.");
 }
 
-function isAppsScriptMode() {
-  return APP_DATA_API_MODE === 'apps-script';
-}
-
-async function parseJson(response: Response) {
-  const text = await response.text();
-  return text ? JSON.parse(text) : {};
-}
-
-export async function fetchAppData(): Promise<PersistedData | null> {
-  const response = await fetch(getEndpointUrl(), {
-    method: 'GET',
-  });
-
-  if (response.status === 404) {
-    return null;
-  }
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch app data from server.');
-  }
-
-  return (await parseJson(response)) as PersistedData;
-}
-
-export async function saveAppData(data: PersistedData): Promise<void> {
-  const response = await fetch(getEndpointUrl(), {
-    method: isAppsScriptMode() ? 'POST' : 'PUT',
-    headers: isAppsScriptMode() ? {
-      'Content-Type': 'text/plain;charset=utf-8',
-    } : {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to save app data to server.');
-  }
-
-  if (isAppsScriptMode()) {
-    const parsed = await parseJson(response);
-    if (parsed && parsed.ok === false) {
-      throw new Error(parsed.message || 'Failed to save app data to Apps Script.');
-    }
-  }
+export function isAppsScriptMode() {
+  return false;
 }

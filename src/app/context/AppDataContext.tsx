@@ -4,17 +4,18 @@ import {
   updateAttendanceRequest,
   applyReplacement,
   getAttendanceRecords,
-  type User,
-  type WeeklyMatchSchedule,
-  type DoublesMatch,
-  type SeasonStats,
-} from '../data/mockData';
-import { generateSchedulesForSeason } from '../data/mockData';
-import {
-  fetchAppData,
-  saveAppData,
-  type PersistedData,
-} from '../api/appDataApi';
+  generateSchedulesForSeason,
+} from '../data/mockData.js';
+import type { User, WeeklyMatchSchedule, DoublesMatch, SeasonStats } from '../data/mockData.js';
+
+import { fetchAppData, saveAppData } from '../api/appDataApi.js';
+
+type AppData = {
+  users: User[];
+  schedules: WeeklyMatchSchedule[];
+  doublesMatches: DoublesMatch[];
+};
+type PersistedData = AppData;
 
 interface GeneratedMatchInput {
   teamA: string[];
@@ -37,6 +38,7 @@ interface AppDataContextType {
   confirmBracketForSchedule: (scheduleId: string, date: string, bracket: GeneratedMatchInput[]) => void;
   recordMatchScore: (matchId: string, scoreA: number, scoreB: number) => void;
   addSchedulesForSeason: (seasonCode: string, totalSessions: number) => void;
+  hydrated: boolean;
 }
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -133,10 +135,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const commitData = (updater: (prev: PersistedData) => PersistedData) => {
-    setData(prev => {
+    setData((prev: PersistedData) => {
       const next = updater(prev);
       if (hydrated) {
-        void saveAppData(next).catch(error => {
+        void saveAppData(next).catch((error: any) => {
           console.error('Failed to sync app data to server:', error);
         });
       }
@@ -145,7 +147,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const getUserById = (id: string) => data.users.find(user => user.id === id);
-  const getUserByName = (name: string) => data.users.find(user => user.name === name);
+  const getUserByName = (name: string) => data.users.find((user: User) => user.name === name);
 
   const addMember = (
     name: string,
@@ -169,7 +171,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       seasonStats: [],
     };
 
-    commitData(prev => ({
+    commitData((prev: PersistedData) => ({
       ...prev,
       users: [...prev.users, created],
     }));
@@ -178,7 +180,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const updateAttendanceChoice = (scheduleId: string, userId: string, choice: 'attend' | 'absent' | 'cancel') => {
-    commitData(prev => ({
+    commitData((prev: PersistedData) => ({
       ...prev,
       schedules: prev.schedules.map(schedule =>
         schedule.id === scheduleId ? updateAttendanceRequest(schedule, userId, choice, undefined, prev.users) : schedule
@@ -187,7 +189,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const applyReplacementByMaster = (scheduleId: string, absentUserId: string, replacementUserId: string) => {
-    commitData(prev => ({
+    commitData((prev: PersistedData) => ({
       ...prev,
       schedules: prev.schedules.map(schedule =>
         schedule.id === scheduleId
@@ -207,7 +209,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       seasonStats: [],
     };
 
-    commitData(prev => ({
+    commitData((prev: PersistedData) => ({
       ...prev,
       users: [...prev.users, guestUser],
       schedules: prev.schedules.map(schedule =>
@@ -221,7 +223,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const updateUserActiveSeasons = (userId: string, seasons: string[]) => {
     const normalized = [...new Set(seasons.map(item => item.trim()).filter(Boolean))];
 
-    commitData(prev => ({
+    commitData((prev: PersistedData) => ({
       ...prev,
       users: prev.users.map(user =>
         user.id === userId ? { ...user, activeSeasons: normalized } : user
@@ -230,7 +232,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const updateUserSeasonStats = (userId: string, seasonStats: SeasonStats[]) => {
-    commitData(prev => ({
+    commitData((prev: PersistedData) => ({
       ...prev,
       users: prev.users.map(user =>
         user.id === userId ? { ...user, seasonStats } : user
@@ -239,13 +241,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const getAttendanceRecordsForSchedule = (scheduleId: string) => {
-    const schedule = data.schedules.find(item => item.id === scheduleId);
+    const schedule = data.schedules.find((item: any) => item.id === scheduleId);
     if (!schedule) return [];
     return getAttendanceRecords(schedule, data.users);
   };
 
   const confirmBracketForSchedule = (scheduleId: string, date: string, bracket: GeneratedMatchInput[]) => {
-    commitData(prev => {
+    commitData((prev: PersistedData) => {
       const untouched = prev.doublesMatches.filter(match => match.scheduleId !== scheduleId);
       const created: DoublesMatch[] = bracket.map((match, idx) => ({
         id: `${scheduleId}-m${idx + 1}`,
@@ -267,7 +269,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const recordMatchScore = (matchId: string, scoreA: number, scoreB: number) => {
-    commitData(prev => {
+    commitData((prev: PersistedData) => {
       const targetMatch = prev.doublesMatches.find(match => match.id === matchId);
       if (!targetMatch) return prev;
 
@@ -307,12 +309,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const addSchedulesForSeason = (seasonCode: string, totalSessions: number) => {
-    const newSchedules = generateSchedulesForSeason(seasonCode, totalSessions);
-    commitData(prev => ({
+    const newSchedules: WeeklyMatchSchedule[] = generateSchedulesForSeason(seasonCode, totalSessions);
+    commitData((prev: PersistedData) => ({
       ...prev,
       schedules: [
         ...prev.schedules,
-        ...newSchedules.filter(newSchedule =>
+        ...newSchedules.filter((newSchedule: WeeklyMatchSchedule) =>
           !prev.schedules.some(existing => existing.id === newSchedule.id)
         ),
       ],
@@ -336,8 +338,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       confirmBracketForSchedule,
       recordMatchScore,
       addSchedulesForSeason,
+      hydrated,
     }),
-    [data]
+    [data, hydrated]
   );
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
