@@ -23,15 +23,12 @@ import {
   MemberManagement,
   getScheduleSeasonCode,
   getDefaultScheduleId,
-  buildSixMatchBracket,
-  buildMixedDoublesBracket,
-  evaluateDrawQuality,
   ADMIN_VIEW_MODE_STORAGE_KEY,
-  type DrawType,
-  type DrawQualityReport,
   type GeneratedMatch,
   type ReplacementParams,
 } from '../components/admin/index.js';
+import { getWinRate } from '../data/mockData.js';
+import { supabase } from '../api/supabaseClient.js';
 
 export function MasterPage() {
   const { isAdmin } = useAuth();
@@ -54,7 +51,7 @@ export function MasterPage() {
 
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>(() => getDefaultScheduleId(schedules));
   const [generatedBracket, setGeneratedBracket] = useState<GeneratedMatch[]>([]);
-  const [bracketMode, setBracketMode] = useState<DrawType | null>(null);
+  const [drawQualityReport, setDrawQualityReport] = useState(null);
   const [bracketConfirmed, setBracketConfirmed] = useState(false);
   const [adminViewMode, setAdminViewMode] = useState<'mobile' | 'desktop'>('desktop');
   const [selectedSeason, setSelectedSeason] = useState<string>('');
@@ -193,41 +190,18 @@ export function MasterPage() {
       (selectedScheduleStatus === 'draw_waiting' || (isPastSchedule && !hasRecordedScores))
   );
 
-  const womenParticipantCount = selectedSchedule
-    ? selectedSchedule.participants.filter(id => {
-        const user = getUserById(id);
-        return user?.gender === 'F' || user?.gender === 'W';
-      }).length
-    : 0;
-
   const participantCountCondition =
-    bracketMode === 'women'
-      ? womenParticipantCount >= 6
-      : (selectedSchedule?.participants.length ?? 0) >= 6;
+    (selectedSchedule?.participants.length ?? 0) >= 6;
 
   const generationValidation = {
     scheduleSelected: Boolean(selectedSchedule),
     statusCondition,
     participantCount: participantCountCondition,
-    drawTypeSelected: bracketMode !== null,
     generatedSixMatches: generatedBracket.length === 6,
     statusMessage: hasRecordedScores ? '스코어가 입력된 과거 일정은 대진을 재생성할 수 없습니다.' : undefined,
   };
 
-  const drawQualityReport: DrawQualityReport | null = useMemo(() => {
-    if (!selectedSchedule || generatedBracket.length === 0 || !bracketMode) return null;
-
-    const targetParticipants = bracketMode === 'women'
-      ? selectedSchedule.participants.filter(id => {
-          const user = getUserById(id);
-          return user?.gender === 'F' || user?.gender === 'W';
-        })
-      : selectedSchedule.participants;
-
-    return evaluateDrawQuality(generatedBracket, targetParticipants, getUserById);
-  }, [selectedSchedule, generatedBracket, bracketMode, getUserById]);
-
-  const handleGenerateDraw = () => {
+  const handleGenerateDraw = async () => {
     if (!selectedSchedule) {
       toast.error('경기 일정을 선택해주세요');
       return;
@@ -243,37 +217,69 @@ export function MasterPage() {
       return;
     }
 
-    if (!bracketMode) {
-      toast.error('대진 타입(여복/혼복)을 선택해주세요');
+
+    if (selectedSchedule.participants.length < 6) {
+      toast.error('대진 생성에는 참석자 최소 6명이 필요합니다');
       return;
     }
 
-    if (bracketMode === 'women' && womenParticipantCount < 6) {
-      toast.error('여복 생성에는 여성 참석자 최소 6명이 필요합니다');
+    const hasConfirmedMatches = doublesMatches.some(
+      match => match.scheduleId === selectedSchedule.id && match.isConfirmed
+    );
+
+    if (hasConfirmedMatches) {
+      const confirmed = window.confirm('⚠️ 이미 대진이 확정된 일정입니다. 기존 대진표를 무시하고 새로 생성하시겠습니까?');
+      if (!confirmed) return;
+    }
+
+    const players = selectedSchedule.participants
+      .map(participantId => {
+        const user = getUserById(participantId);
+        if (!user) return null;
+        return {
+          id: user.id,
+          name: user.name,
+          gender: user.gender,
+          winRate: user.isGuest ? 0 : getWinRate(user),
+          isGuest: Boolean(user.isGuest),
+        };
+      })
+      .filter((player): player is { id: string; name: string; gender: 'M' | 'F' | 'W'; winRate: number; isGuest: boolean } => Boolean(player));
+
+    if (players.length < 6) {
+      toast.error('참가자 정보를 불러오지 못해 대진 생성이 중단되었습니다');
       return;
     }
 
-    if (bracketMode === 'mixed' && selectedSchedule.participants.length < 6) {
-      toast.error('혼복 생성에는 참석자 최소 6명이 필요합니다');
-      return;
-    }
-
-    let bracket: GeneratedMatch[];
-    if (bracketMode === 'mixed') {
-      bracket = buildMixedDoublesBracket(selectedSchedule.participants, getUserById);
-    } else {
-      const womenParticipants = selectedSchedule.participants.filter(id => {
-        const user = getUserById(id);
-        return user?.gender === 'F' || user?.gender === 'W';
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-matchup', {
+        body: {
+          players,
+        },
       });
-      bracket = buildSixMatchBracket(womenParticipants, 'random', getUserById);
+
+      if (error) throw error;
+
+      let bracket: GeneratedMatch[] | null = null;
+      let quality: any = null;
+      if (Array.isArray(data)) {
+        bracket = data;
+      } else if (data && Array.isArray(data.matches)) {
+        bracket = data.matches;
+        quality = data.quality ?? null;
+      }
+      if (!bracket || bracket.length === 0) {
+        throw new Error('대진 생성 결과가 비어 있습니다');
+      }
+      setGeneratedBracket(bracket);
+      setDrawQualityReport(quality);
+      setBracketConfirmed(false);
+      const labels = { random: '랜덤', skill: '실력', mixed: '혼복', ai: 'AI' };
+      toast.success('대진표가 생성되었습니다');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '알 수 없는 오류';
+      toast.error(`대진 생성에 실패했습니다: ${message}`);
     }
-
-    setGeneratedBracket(bracket);
-    setBracketConfirmed(false);
-
-    const labels = { women: '여복', mixed: '혼복' };
-    toast.success(`${labels[bracketMode]} 대진표 6경기가 생성되었습니다`);
   };
 
   const handleConfirmBracket = () => {
@@ -357,7 +363,6 @@ export function MasterPage() {
     setSelectedScheduleId(scheduleId);
     setGeneratedBracket([]);
     setBracketConfirmed(false);
-    setBracketMode(null);
   };
 
   const handleApplyReplacementFromComponent = (params: ReplacementParams) => {
@@ -472,11 +477,9 @@ export function MasterPage() {
             <DrawGenerator
               selectedSchedule={selectedSchedule ?? null}
               generatedBracket={generatedBracket}
-              selectedDrawType={bracketMode}
               bracketConfirmed={bracketConfirmed}
               validation={generationValidation}
               qualityReport={drawQualityReport}
-              onSelectDrawType={setBracketMode}
               onGenerateDraw={handleGenerateDraw}
               onConfirmBracket={handleConfirmBracket}
               getUserById={getUserById}

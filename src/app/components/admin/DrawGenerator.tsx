@@ -11,21 +11,18 @@ import type { User as UserType } from '../../data/mockData.js';
 export function DrawGenerator({
   selectedSchedule,
   generatedBracket,
-  selectedDrawType,
   bracketConfirmed,
   validation,
   qualityReport,
-  onSelectDrawType,
   onGenerateDraw,
   onConfirmBracket,
   getUserById,
   isMobilePreview,
-}: DrawGeneratorProps) {
+}: Omit<DrawGeneratorProps, 'selectedDrawType' | 'onSelectDrawType'>) {
   const validationItems = [
     { label: '일정 선택', passed: validation.scheduleSelected },
     { label: '일정 상태 확인 (대기중 또는 과거 일정)', passed: validation.statusCondition },
     { label: '참석자 수 6명 이상', passed: validation.participantCount },
-    { label: '대진 타입 선택 (여복/혼복)', passed: validation.drawTypeSelected },
     { label: '생성된 경기 수 6경기', passed: validation.generatedSixMatches },
   ];
 
@@ -39,6 +36,42 @@ export function DrawGenerator({
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {qualityReport && (
+            <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-xs font-semibold text-gray-600">대진 품질 검증 결과</p>
+                <div className="flex items-center gap-2 text-xs">
+                  <Badge
+                    variant="outline"
+                    className={qualityReport.requiredPassed ? 'border-green-500 text-green-700' : 'border-red-400 text-red-600'}
+                  >
+                    엄선 {qualityReport.requiredPassedCount}/{qualityReport.requiredTotal}
+                  </Badge>
+                  <Badge variant="outline" className="border-sky-400 text-sky-700">
+                    베스트 {qualityReport.bestPassedCount}/{qualityReport.bestTotal}
+                  </Badge>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                {qualityReport.items.map(item => (
+                  <div key={item.key} className="flex items-start justify-between gap-2 text-sm">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium text-gray-700">{item.label}</span>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          {item.tier}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-gray-500 truncate">{item.detail}</p>
+                    </div>
+                    <span className={item.passed ? 'text-green-600 font-semibold text-xs' : 'text-red-500 font-semibold text-xs'}>
+                      {item.passed ? '통과' : '미통과'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
             <p className="mb-2 text-xs font-semibold text-gray-600">대진 생성 조건 검증</p>
             <div className="space-y-1.5">
@@ -58,30 +91,11 @@ export function DrawGenerator({
 
           {selectedSchedule ? (
             <div className="space-y-3">
-              <div className={`flex ${isMobilePreview ? 'flex-col' : 'flex-row'} gap-2`}>
-                <Button
-                  variant={selectedDrawType === 'women' ? 'default' : 'outline'}
-                  onClick={() => onSelectDrawType('women')}
-                  className={isMobilePreview ? 'w-full' : ''}
-                  style={selectedDrawType === 'women' ? { backgroundColor: '#030213', color: '#fff' } : undefined}
-                >
-                  여복 선택
-                </Button>
-                <Button
-                  variant={selectedDrawType === 'mixed' ? 'default' : 'outline'}
-                  onClick={() => onSelectDrawType('mixed')}
-                  className={isMobilePreview ? 'w-full' : ''}
-                  style={selectedDrawType === 'mixed' ? { backgroundColor: '#030213', color: '#fff' } : undefined}
-                >
-                  혼복 선택
-                </Button>
-              </div>
-
               <Button
                 onClick={onGenerateDraw}
                 style={{ backgroundColor: '#030213', color: '#fff' }}
                 className={isMobilePreview ? 'w-full' : ''}
-                disabled={!validation.scheduleSelected || !validation.statusCondition || !validation.participantCount || !validation.drawTypeSelected}
+                disabled={!validation.scheduleSelected || !validation.statusCondition || !validation.participantCount}
               >
                 대진 생성
               </Button>
@@ -110,9 +124,7 @@ export function DrawGenerator({
               day: 'numeric',
               weekday: 'short',
             })}
-            <Badge variant="outline" className="ml-1 text-xs">
-              {selectedDrawType === 'women' ? '여복' : '혼복'}
-            </Badge>
+            {/* 대진 타입 뱃지 제거 */}
             {bracketConfirmed && (
               <Badge className="ml-1 text-xs" style={{ backgroundColor: '#4CAF50', color: 'white' }}>
                 확정됨
@@ -161,7 +173,6 @@ export function DrawGenerator({
                 </Badge>
               </div>
             </div>
-
             <div className="space-y-1.5">
               {qualityReport.items.map(item => (
                 <div key={item.key} className="flex items-start justify-between gap-2 text-sm">
@@ -182,7 +193,6 @@ export function DrawGenerator({
             </div>
           </div>
         )}
-
         <div className="space-y-4">
           {generatedBracket.map((match, idx) => {
             const teamA = match.teamA.map(id => getUserById(id)).filter(Boolean) as UserType[];
@@ -223,11 +233,9 @@ export function DrawGenerator({
                   >
                     {isBalanced ? '균형' : '불균형'}
                   </Badge>
-                  {selectedDrawType === 'mixed' && (
-                    <Badge className="text-xs py-0" variant="outline">
+                  <Badge className="text-xs py-0" variant="outline">
                       {getMatchTypeLabel()}
                     </Badge>
-                  )}
                 </div>
 
                 <div className={`flex ${isMobilePreview ? 'flex-col' : 'flex-row items-stretch'} gap-3`}>

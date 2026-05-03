@@ -17,34 +17,12 @@ export interface AttendanceRecord {
   placement?: 'participant' | 'waitlist';
 }
 
-export type DrawType = 'women' | 'mixed';
-
 export interface DrawGenerationValidation {
   scheduleSelected: boolean;
   statusCondition: boolean;
   participantCount: boolean;
-  drawTypeSelected: boolean;
   generatedSixMatches: boolean;
   statusMessage?: string;
-}
-
-export type DrawConstraintTier = '엄선' | '베스트';
-
-export interface DrawConstraintResult {
-  key: string;
-  label: string;
-  tier: DrawConstraintTier;
-  passed: boolean;
-  detail: string;
-}
-
-export interface DrawQualityReport {
-  items: DrawConstraintResult[];
-  requiredPassed: boolean;
-  requiredPassedCount: number;
-  requiredTotal: number;
-  bestPassedCount: number;
-  bestTotal: number;
 }
 
 // ScheduleSelector Props
@@ -68,6 +46,21 @@ export interface ScheduleInfoProps {
 }
 
 // DrawGenerator Props
+export interface DrawConstraintResult {
+  key: string;
+  label: string;
+  tier: string;
+  passed: boolean;
+  detail: string;
+}
+export interface DrawQualityReport {
+  items: DrawConstraintResult[];
+  requiredPassed: boolean;
+  requiredPassedCount: number;
+  requiredTotal: number;
+  bestPassedCount: number;
+  bestTotal: number;
+}
 export interface DrawGeneratorProps {
   selectedSchedule: Schedule | null;
   generatedBracket: GeneratedMatch[];
