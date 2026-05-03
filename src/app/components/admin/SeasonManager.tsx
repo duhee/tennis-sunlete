@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
 import { Button } from '../ui/button.js';
+import { ChevronDown, ChevronRight, UserRoundPlus } from 'lucide-react';
+import { toast } from 'sonner';
 import { seasonCodeToLabel } from '../../data/mockData.js';
 import { SEASON_OPTIONS } from './types.js';
 import type { SeasonManagerProps } from './types.js';
@@ -15,11 +17,15 @@ export function SeasonManager({
   onAddSeason,
   onToggleMember,
   onSaveSeason,
+  onCreateMember,
   onTotalSessionsChange,
   isMobilePreview,
 }: SeasonManagerProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [showAllMembersForSeason, setShowAllMembersForSeason] = useState<boolean>(false);
   const [newSeasonSelect, setNewSeasonSelect] = useState<string>('');
+  const [newMemberName, setNewMemberName] = useState<string>('');
+  const [newMemberPhoneLast4, setNewMemberPhoneLast4] = useState<string>('');
 
   const selectedSeasonMembers = selectedSeason
     ? (seasonMemberDrafts[selectedSeason] ?? [])
@@ -36,12 +42,51 @@ export function SeasonManager({
     onTotalSessionsChange(newSeasonSelect, '0');
   };
 
+  const handleCreateMember = () => {
+    if (!selectedSeason) {
+      toast.error('시즌을 먼저 선택해주세요');
+      return;
+    }
+
+    const name = newMemberName.trim();
+    const phoneLast4 = newMemberPhoneLast4.trim();
+
+    if (!name) {
+      toast.error('신규 회원 이름을 입력해주세요');
+      return;
+    }
+
+    if (!/^\d{4}$/.test(phoneLast4)) {
+      toast.error('전화번호 뒷번호 4자리를 입력해주세요');
+      return;
+    }
+
+    onCreateMember(selectedSeason, name, phoneLast4);
+    setNewMemberName('');
+    setNewMemberPhoneLast4('');
+  };
+
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>회원 활동 시즌 설정</CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle>회원 활동 시즌 설정</CardTitle>
+          <Button variant="outline" size="sm" onClick={() => setIsExpanded(prev => !prev)}>
+            {isExpanded ? (
+              <>
+                <ChevronDown className="w-4 h-4 mr-1" />
+                접기
+              </>
+            ) : (
+              <>
+                <ChevronRight className="w-4 h-4 mr-1" />
+                펼치기
+              </>
+            )}
+          </Button>
+        </div>
       </CardHeader>
-      <CardContent>
+      {isExpanded && <CardContent>
         {/* Season tabs + add */}
         <div className="flex flex-wrap gap-2 mb-4">
           {allSeasons.map((s: string) => (
@@ -172,11 +217,48 @@ export function SeasonManager({
                 {seasonCodeToLabel(selectedSeason)} 저장
               </Button>
             </div>
+
+            <div className="mt-6 border-t pt-4">
+              <div className="mb-3 flex items-center gap-2">
+                <UserRoundPlus className="w-4 h-4" style={{ color: '#030213' }} />
+                <p className="text-sm font-semibold text-[#030213]">신규 회원 추가</p>
+              </div>
+              <div className={`flex flex-col gap-3 ${isMobilePreview ? '' : 'sm:flex-row sm:items-end'}`}>
+                <input
+                  id="newMemberName"
+                  name="newMemberName"
+                  type="text"
+                  className={`border rounded-md px-3 py-2 text-sm ${isMobilePreview ? 'w-full' : 'flex-1'}`}
+                  placeholder="회원 이름"
+                  value={newMemberName}
+                  onChange={e => setNewMemberName(e.target.value)}
+                  autoComplete="name"
+                />
+                <input
+                  id="newMemberPhoneLast4"
+                  name="newMemberPhoneLast4"
+                  type="text"
+                  className={`border rounded-md px-3 py-2 text-sm ${isMobilePreview ? 'w-full' : 'w-28'}`}
+                  placeholder="휴대폰 뒷자리 4자리"
+                  value={newMemberPhoneLast4}
+                  onChange={e => setNewMemberPhoneLast4(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  maxLength={4}
+                  autoComplete="tel"
+                />
+                <Button
+                  onClick={handleCreateMember}
+                  style={{ backgroundColor: '#030213', color: '#fff' }}
+                  className={isMobilePreview ? 'w-full' : ''}
+                >
+                  회원 추가
+                </Button>
+              </div>
+            </div>
           </div>
         ) : (
           <p className="text-sm text-gray-400 text-center py-4">시즌을 선택하거나 새 시즌을 추가하세요</p>
         )}
-      </CardContent>
+      </CardContent>}
     </Card>
   );
 }

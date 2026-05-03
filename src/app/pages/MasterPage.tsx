@@ -13,14 +13,12 @@ import { Toaster } from '../components/ui/sonner.js';
 import { useIsMobile } from '../components/ui/use-mobile.js';
 import {
   ScheduleSelector,
-  ScheduleInfo,
   DrawGenerator,
   ReplacementManager,
   AttendanceRecordsView,
   MemberAttendancePanel,
   GuestListPanel,
   SeasonManager,
-  MemberManagement,
   getScheduleSeasonCode,
   getDefaultScheduleId,
   ADMIN_VIEW_MODE_STORAGE_KEY,
@@ -40,6 +38,7 @@ export function MasterPage() {
     addMember,
     applyReplacementByMaster,
     addGuestAndReplace,
+    removeGuestUser,
     updateUserActiveSeasons,
     updateUserSeasonStats,
     getAttendanceRecordsForSchedule,
@@ -302,6 +301,13 @@ export function MasterPage() {
     });
   };
 
+  const handleApplyManualBracket = (matches: GeneratedMatch[]) => {
+    setGeneratedBracket(matches);
+    setDrawQualityReport(null);
+    setBracketConfirmed(false);
+    toast.success('직접 작성한 대진표를 적용했습니다');
+  };
+
   const handleAddSeason = (s: string) => {
     if (!s) return;
     setSeasonMemberDrafts((prev: any) => (prev[s] !== undefined ? prev : { ...prev, [s]: [] }));
@@ -413,6 +419,25 @@ export function MasterPage() {
     toast.success('신규 회원이 추가되었습니다');
   };
 
+  const handleDeleteGuest = (guestId: string) => {
+    const target = users.find(user => user.id === guestId && user.isGuest);
+    if (!target) {
+      toast.error('게스트 정보를 찾을 수 없습니다');
+      return;
+    }
+
+    const confirmed = window.confirm(`${target.name} 게스트를 삭제하시겠습니까?`);
+    if (!confirmed) return;
+
+    const result = removeGuestUser(guestId);
+    if (!result.ok) {
+      toast.error(result.reason ?? '게스트 삭제에 실패했습니다');
+      return;
+    }
+
+    toast.success('게스트를 삭제했습니다');
+  };
+
   const statusLabel =
     selectedScheduleStatus === 'open'
       ? '참석 접수중'
@@ -466,14 +491,6 @@ export function MasterPage() {
               onToggleShowClosed={setShowClosedPastSchedules}
               isMobilePreview={isMobilePreview}
             />
-            <ScheduleInfo
-              schedule={selectedSchedule ?? null}
-              status={selectedScheduleStatus as 'open' | 'draw_waiting' | 'closed'}
-              seasonCode={selectedScheduleSeasonCode}
-              seasonMembers={selectedScheduleSeasonMembers}
-              maxParticipants={selectedSchedule?.maxParticipants ?? 0}
-              isMobilePreview={isMobilePreview}
-            />
             <DrawGenerator
               selectedSchedule={selectedSchedule ?? null}
               generatedBracket={generatedBracket}
@@ -481,6 +498,7 @@ export function MasterPage() {
               validation={generationValidation}
               qualityReport={drawQualityReport}
               onGenerateDraw={handleGenerateDraw}
+              onApplyManualBracket={handleApplyManualBracket}
               onConfirmBracket={handleConfirmBracket}
               getUserById={getUserById}
               isMobilePreview={isMobilePreview}
@@ -517,6 +535,8 @@ export function MasterPage() {
 
         <GuestListPanel
           guestUsers={guestUsers}
+          schedules={schedules}
+          onDeleteGuest={handleDeleteGuest}
           isMobilePreview={isMobilePreview}
         />
 
@@ -530,15 +550,10 @@ export function MasterPage() {
           onAddSeason={handleAddSeason}
           onToggleMember={handleToggleMemberInSeason}
           onSaveSeason={handleSaveSeason}
+          onCreateMember={handleCreateMemberFromComponent}
           onTotalSessionsChange={(season, value) => {
             setSeasonTotalSessionsDraft(prev => ({ ...prev, [season]: value }));
           }}
-          isMobilePreview={isMobilePreview}
-        />
-
-        <MemberManagement
-          selectedSeason={selectedSeason}
-          onCreateMember={handleCreateMemberFromComponent}
           isMobilePreview={isMobilePreview}
         />
       </div>

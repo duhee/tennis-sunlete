@@ -8,6 +8,19 @@ import { getWinRate } from '../../data/mockData.js';
 import type { DrawGeneratorProps } from './types.js';
 import type { User as UserType } from '../../data/mockData.js';
 
+type ManualMatchDraft = {
+  id: string;
+  teamA: [string, string];
+  teamB: [string, string];
+};
+
+const createManualDraft = (): ManualMatchDraft[] =>
+  Array.from({ length: 6 }, (_, idx) => ({
+    id: `g${idx + 1}`,
+    teamA: ['', ''],
+    teamB: ['', ''],
+  }));
+
 export function DrawGenerator({
   selectedSchedule,
   generatedBracket,
@@ -15,16 +28,79 @@ export function DrawGenerator({
   validation,
   qualityReport,
   onGenerateDraw,
+  onApplyManualBracket,
   onConfirmBracket,
   getUserById,
   isMobilePreview,
-}: Omit<DrawGeneratorProps, 'selectedDrawType' | 'onSelectDrawType'>) {
+}: DrawGeneratorProps) {
+  const [isManualMode, setIsManualMode] = React.useState(false);
+  const [manualDraft, setManualDraft] = React.useState<ManualMatchDraft[]>(() => createManualDraft());
+
+  React.useEffect(() => {
+    setManualDraft(createManualDraft());
+    setIsManualMode(false);
+  }, [selectedSchedule?.id]);
+
   const validationItems = [
     { label: '일정 선택', passed: validation.scheduleSelected },
     { label: '일정 상태 확인 (대기중 또는 과거 일정)', passed: validation.statusCondition },
     { label: '참석자 수 6명 이상', passed: validation.participantCount },
-    { label: '생성된 경기 수 6경기', passed: validation.generatedSixMatches },
   ];
+
+  const participantUsers = (selectedSchedule?.participants ?? [])
+    .map(id => getUserById(id))
+    .filter(Boolean) as UserType[];
+
+  const updateManualSlot = (
+    matchIdx: number,
+    team: 'teamA' | 'teamB',
+    slotIdx: 0 | 1,
+    value: string
+  ) => {
+    setManualDraft(prev =>
+      prev.map((match, idx) => {
+        if (idx !== matchIdx) return match;
+        const updatedTeam: [string, string] = [...match[team]] as [string, string];
+        updatedTeam[slotIdx] = value;
+        return { ...match, [team]: updatedTeam };
+      })
+    );
+  };
+
+  const applyManualDraft = () => {
+    if (!selectedSchedule) {
+      toast.error('경기 일정을 먼저 선택해주세요');
+      return;
+    }
+
+    const participantSet = new Set(selectedSchedule.participants);
+    for (const match of manualDraft) {
+      const members = [...match.teamA, ...match.teamB];
+      if (members.some(id => !id)) {
+        toast.error(`${match.id.toUpperCase()} 경기의 선수를 모두 선택해주세요`);
+        return;
+      }
+
+      if (new Set(members).size !== 4) {
+        toast.error(`${match.id.toUpperCase()} 경기에서 중복 선수가 있습니다`);
+        return;
+      }
+
+      if (!members.every(id => participantSet.has(id))) {
+        toast.error(`${match.id.toUpperCase()} 경기의 선수가 현재 참가자가 아닙니다`);
+        return;
+      }
+    }
+
+    onApplyManualBracket(
+      manualDraft.map(match => ({
+        id: match.id,
+        teamA: [...match.teamA],
+        teamB: [...match.teamB],
+      }))
+    );
+    setIsManualMode(false);
+  };
 
   if (generatedBracket.length === 0) {
     return (
@@ -91,6 +167,100 @@ export function DrawGenerator({
 
           {selectedSchedule ? (
             <div className="space-y-3">
+              <div className={`flex ${isMobilePreview ? 'flex-col' : 'flex-row'} gap-2`}>
+                <Button
+                  variant={isManualMode ? 'default' : 'outline'}
+                  className={isMobilePreview ? 'w-full' : ''}
+                  onClick={() => setIsManualMode(prev => !prev)}
+                >
+                  {isManualMode ? '직접 작성 닫기' : '대진 직접 작성'}
+                </Button>
+                {isManualMode && (
+                  <Button
+                    variant="outline"
+                    className={isMobilePreview ? 'w-full' : ''}
+                    onClick={() => setManualDraft(createManualDraft())}
+                  >
+                    입력 초기화
+                  </Button>
+                )}
+              </div>
+
+              {isManualMode && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3">
+                  <p className="text-xs font-semibold text-gray-600">직접 대진 작성 (6경기)</p>
+                  {manualDraft.map((match, matchIdx) => (
+                    <div key={match.id} className="rounded-md border bg-white p-2">
+                      <p className="mb-2 text-xs font-medium text-gray-600">{matchIdx + 1}경기</p>
+                      <div className={`grid ${isMobilePreview ? 'grid-cols-1' : 'grid-cols-2'} gap-2`}>
+                        <div className="space-y-1">
+                          <p className="text-xs text-gray-500">Team A</p>
+                          <select
+                            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                            value={match.teamA[0]}
+                            onChange={e => updateManualSlot(matchIdx, 'teamA', 0, e.target.value)}
+                          >
+                            <option value="">선수 선택</option>
+                            {participantUsers.map(user => (
+                              <option key={`${match.id}-a0-${user.id}`} value={user.id}>
+                                {user.name}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                            value={match.teamA[1]}
+                            onChange={e => updateManualSlot(matchIdx, 'teamA', 1, e.target.value)}
+                          >
+                            <option value="">선수 선택</option>
+                            {participantUsers.map(user => (
+                              <option key={`${match.id}-a1-${user.id}`} value={user.id}>
+                                {user.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-gray-500">Team B</p>
+                          <select
+                            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                            value={match.teamB[0]}
+                            onChange={e => updateManualSlot(matchIdx, 'teamB', 0, e.target.value)}
+                          >
+                            <option value="">선수 선택</option>
+                            {participantUsers.map(user => (
+                              <option key={`${match.id}-b0-${user.id}`} value={user.id}>
+                                {user.name}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                            value={match.teamB[1]}
+                            onChange={e => updateManualSlot(matchIdx, 'teamB', 1, e.target.value)}
+                          >
+                            <option value="">선수 선택</option>
+                            {participantUsers.map(user => (
+                              <option key={`${match.id}-b1-${user.id}`} value={user.id}>
+                                {user.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <Button
+                    className={isMobilePreview ? 'w-full' : ''}
+                    style={{ backgroundColor: '#030213', color: '#fff' }}
+                    onClick={applyManualDraft}
+                  >
+                    직접 작성 대진 적용
+                  </Button>
+                </div>
+              )}
+
               <Button
                 onClick={onGenerateDraw}
                 style={{ backgroundColor: '#030213', color: '#fff' }}

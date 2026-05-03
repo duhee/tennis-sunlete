@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { TrendingDown } from 'lucide-react';
+import { ChevronDown, ChevronRight, TrendingDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
 import { Badge } from '../ui/badge.js';
+import { Button } from '../ui/button.js';
 import {
   Table,
   TableBody,
@@ -28,6 +29,7 @@ export function MemberAttendancePanel({
   onChangeAttendanceSeasonFilter,
   isMobilePreview,
 }: MemberAttendancePanelProps) {
+  const [isExpanded, setIsExpanded] = React.useState(false);
   const sortedUsers = [...memberUsers].sort((a, b) => getAttendanceRate(a) - getAttendanceRate(b));
 
   let usersToShow = sortedUsers;
@@ -38,9 +40,24 @@ export function MemberAttendancePanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>회원 출석 관리</CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle>회원 출석 관리</CardTitle>
+          <Button variant="outline" size="sm" onClick={() => setIsExpanded(prev => !prev)}>
+            {isExpanded ? (
+              <>
+                <ChevronDown className="w-4 h-4 mr-1" />
+                접기
+              </>
+            ) : (
+              <>
+                <ChevronRight className="w-4 h-4 mr-1" />
+                펼치기
+              </>
+            )}
+          </Button>
+        </div>
       </CardHeader>
-      <CardContent>
+      {isExpanded && <CardContent>
         <div className="mb-4 flex gap-2 flex-wrap">
           <button
             onClick={() => onChangeAttendanceSeasonFilter('')}
@@ -172,7 +189,7 @@ export function MemberAttendancePanel({
             </Table>
           </div>
         )}
-      </CardContent>
+      </CardContent>}
     </Card>
   );
 }

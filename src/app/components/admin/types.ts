@@ -64,12 +64,11 @@ export interface DrawQualityReport {
 export interface DrawGeneratorProps {
   selectedSchedule: Schedule | null;
   generatedBracket: GeneratedMatch[];
-  selectedDrawType: DrawType | null;
   bracketConfirmed: boolean;
   validation: DrawGenerationValidation;
   qualityReport: DrawQualityReport | null;
-  onSelectDrawType: (type: DrawType) => void;
   onGenerateDraw: () => void;
+  onApplyManualBracket: (matches: GeneratedMatch[]) => void;
   onConfirmBracket: () => void;
   getUserById: (id: string) => UserType | undefined;
   isMobilePreview: boolean;
@@ -114,6 +113,7 @@ export interface SeasonManagerProps {
   onAddSeason: (season: string) => void;
   onToggleMember: (season: string, memberId: string) => void;
   onSaveSeason: (season: string) => void;
+  onCreateMember: (season: string, name: string, phoneLast4: string) => void;
   onTotalSessionsChange: (season: string, value: string) => void;
   isMobilePreview: boolean;
 }

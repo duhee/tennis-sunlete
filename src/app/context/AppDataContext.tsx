@@ -32,6 +32,7 @@ interface AppDataContextType {
   updateAttendanceChoice: (scheduleId: string, userId: string, choice: 'attend' | 'absent' | 'cancel') => void;
   applyReplacementByMaster: (scheduleId: string, absentUserId: string, replacementUserId: string) => void;
   addGuestAndReplace: (scheduleId: string, absentUserId: string, guestName: string, guestGender: 'M' | 'F') => void;
+  removeGuestUser: (guestUserId: string) => { ok: boolean; reason?: string };
   updateUserActiveSeasons: (userId: string, seasons: string[]) => void;
   updateUserSeasonStats: (userId: string, seasonStats: SeasonStats[]) => void;
   getAttendanceRecordsForSchedule: (scheduleId: string) => ReturnType<typeof getAttendanceRecords>;
@@ -220,6 +221,33 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const removeGuestUser = (guestUserId: string): { ok: boolean; reason?: string } => {
+    const guest = data.users.find(user => user.id === guestUserId);
+    if (!guest || !guest.isGuest) {
+      return { ok: false, reason: '게스트 정보를 찾을 수 없습니다.' };
+    }
+
+    const referencedInSchedule = data.schedules.some(schedule =>
+      schedule.attendanceRequests.some(row => row.userId === guestUserId) ||
+      schedule.participants.includes(guestUserId) ||
+      schedule.waitlist.includes(guestUserId)
+    );
+    const referencedInMatch = data.doublesMatches.some(
+      match => match.teamA.includes(guestUserId) || match.teamB.includes(guestUserId)
+    );
+
+    if (referencedInSchedule || referencedInMatch) {
+      return { ok: false, reason: '이미 일정/경기 기록에 사용된 게스트는 삭제할 수 없습니다.' };
+    }
+
+    commitData((prev: PersistedData) => ({
+      ...prev,
+      users: prev.users.filter(user => user.id !== guestUserId),
+    }));
+
+    return { ok: true };
+  };
+
   const updateUserActiveSeasons = (userId: string, seasons: string[]) => {
     const normalized = [...new Set(seasons.map(item => item.trim()).filter(Boolean))];
 
@@ -332,6 +360,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       updateAttendanceChoice,
       applyReplacementByMaster,
       addGuestAndReplace,
+      removeGuestUser,
       updateUserActiveSeasons,
       updateUserSeasonStats,
       getAttendanceRecordsForSchedule,
