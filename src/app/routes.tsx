@@ -37,6 +37,10 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: "/shared/:bracketId",
+    element: <SharedBracket />,
+  },
+  {
     path: "/bracket/share",
     element: <SharedBracket />,
   },

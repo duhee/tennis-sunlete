@@ -1,7 +1,7 @@
 # Tennis Sunlete API 명세 (FE <-> Supabase)
 
 ## 1. 데이터 Fetch/저장
-- **모든 데이터는 Supabase REST API를 통해 CRUD**
+- **모든 데이터는 Supabase 테이블(users, schedules, attendance_requests, doubles_matches)을 기준으로 CRUD**
 - **직접 SQL/Row Level Security 미사용**
 
 ### 1.1. 회원 목록 조회
@@ -26,6 +26,7 @@
 
 ### 1.6. 데이터 집계/가공
 - FE에서 fetch 후, Context에서 가공/집계(출석률, 승률 등)
+- 저장 시 프론트에서 정규화된 4개 테이블에 upsert/delete 방식으로 동기화
 
 ---
 

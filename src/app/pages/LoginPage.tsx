@@ -9,16 +9,15 @@ import { Label } from '../components/ui/label.js';
 
 export function LoginPage() {
   const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [phoneLast4, setPhoneLast4] = useState('');
   const [error, setError] = useState('');
   const { login } = useAuth();
-   const { getUserByName, users, hydrated } = useAppData();
+  const { getUserByName, users, hydrated } = useAppData();
   const navigate = useNavigate();
 
   const isValidPhoneLast4 = (value: string) => /^\d{4}$/.test(value);
   // 이름에서 공백, 괄호, '마스터' 등 부가 텍스트 제거
   const normalizeName = (value: string) => value.replace(/\s+/g, '').replace(/\(.*?\)/g, '').replace(/마스터/g, '').trim();
-  const isMasterName = (value: string) => normalizeName(value) === '장두희';
 
   const findUserByFlexibleName = (rawName: string) => {
     const normalizedInput = normalizeName(rawName);
@@ -36,19 +35,17 @@ export function LoginPage() {
 
   const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log('[LoginPage] handleLogin called', { username, password });
+    console.log('[LoginPage] handleLogin called', { username, phoneLast4 });
     console.log('[LoginPage] users from context', users, 'hydrated:', hydrated);
     setError('');
 
-    if (!username || !password) {
-      setError('성함과 비밀번호를 입력해주세요');
+    if (!username || !phoneLast4) {
+      setError('성함과 휴대폰 뒷자리 4자리를 입력해주세요');
       return;
     }
 
-
-    // 비밀번호는 최소 4자 이상만 체크 (예시)
-    if (password.length < 4) {
-      setError('비밀번호를 4자 이상 입력해주세요');
+    if (!isValidPhoneLast4(phoneLast4)) {
+      setError('휴대폰 뒷자리 4자리를 숫자로 입력해주세요');
       return;
     }
 
@@ -78,12 +75,12 @@ export function LoginPage() {
       return;
     }
 
-    if (password !== user.phoneLast4) {
-      setError('비밀번호(휴대폰 뒷자리)가 일치하지 않습니다');
+    if (phoneLast4 !== user.phoneLast4) {
+      setError('휴대폰 뒷자리 4자리가 일치하지 않습니다');
       return;
     }
 
-    const success = login(user, password);
+    const success = login(user, phoneLast4);
     console.log('[LoginPage] login result', success);
     if (!success) {
       setError('로그인 처리 중 오류가 발생했습니다');
@@ -122,14 +119,16 @@ export function LoginPage() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="password">비밀번호</Label>
+              <Label htmlFor="phoneLast4">휴대폰 뒷자리 4자리</Label>
               <Input
-                id="password"
-                name="password"
+                id="phoneLast4"
+                name="phoneLast4"
                 type="password"
-                placeholder="비밀번호를 입력하세요"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="숫자 4자리를 입력하세요"
+                value={phoneLast4}
+                onChange={(e) => setPhoneLast4(e.target.value.replace(/\D/g, '').slice(0, 4))}
                 autoComplete="current-password"
                 className="w-full"
               />
@@ -149,7 +148,7 @@ export function LoginPage() {
               className="w-full"
               style={{ backgroundColor: '#FFC1CC', color: '#030213' }}
             >
-              Login
+              로그인
             </Button>
 
             <div 
@@ -158,7 +157,7 @@ export function LoginPage() {
             >
               <p className="mb-2 font-medium">로그인 안내</p>
               <p>등록된 회원만 로그인 가능합니다</p>
-              <p className="mt-2 text-gray-500">비밀번호: 회원 가입 시 등록된 값</p>
+              <p className="mt-2 text-gray-500">입력값: 등록된 휴대폰 뒷자리 4자리</p>
             </div>
           </form>
         </CardContent>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useAppData } from '../context/AppDataContext.js';
 import { Card, CardContent, CardHeader } from '../components/ui/card.js';
 import { Badge } from '../components/ui/badge.js';
@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/badge.js';
 export function SharedBracket() {
   const { doublesMatches, getUserById } = useAppData();
   const [searchParams] = useSearchParams();
+  const { bracketId } = useParams<{ bracketId?: string }>();
 
 
   const highlightPlayer = searchParams.get('player');
@@ -29,7 +30,7 @@ export function SharedBracket() {
   ).sort((a, b) => a - b);
 
   // date 파라미터가 있으면 사용, 없으면 오늘 이후 가장 가까운 대진 날짜 사용
-  let shareDate = searchParams.get('date');
+  let shareDate = searchParams.get('date') ?? bracketId;
   if (!shareDate) {
     const nextDate = confirmedDates.find(ts => ts >= today.getTime());
     if (nextDate) {

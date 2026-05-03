@@ -201,9 +201,9 @@ export function UserDashboard() {
     const dd = String(dateObj.getDate()).padStart(2, '0');
     const dateKey = `${yyyy}-${mm}-${dd}`;
 
-    let shareUrl = `${window.location.origin}/bracket/share?date=${dateKey}`;
+    let shareUrl = `${window.location.origin}/shared/${dateKey}`;
     if (searchPlayerName.trim()) {
-      shareUrl += `&player=${encodeURIComponent(searchPlayerName)}`;
+      shareUrl += `?player=${encodeURIComponent(searchPlayerName)}`;
     }
 
     navigator.clipboard.writeText(shareUrl);
