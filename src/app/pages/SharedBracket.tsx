@@ -1,6 +1,7 @@
 import React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useAppData } from '../context/AppDataContext.js';
+import { getScheduleDrawCutoff } from '../data/mockData.js';
 import { Card, CardContent, CardHeader } from '../components/ui/card.js';
 import { Badge } from '../components/ui/badge.js';
 
@@ -32,10 +33,29 @@ export function SharedBracket() {
   // date 파라미터가 있으면 사용, 없으면 오늘 이후 가장 가까운 대진 날짜 사용
   let shareDate = searchParams.get('date') ?? bracketId;
   if (!shareDate) {
-    const nextDate = confirmedDates.find(ts => ts >= today.getTime());
-    if (nextDate) {
-      // YYYY-MM-DD 포맷으로 변환
-      const d = new Date(nextDate);
+    // 오늘 날짜가 drawCutoff(경기 다음날 월요일 11시) 이전이면 가장 최근 경기, 이후면 다음 경기
+    const now = new Date();
+    let selectedTs: number | undefined;
+    for (let i = 0; i < confirmedDates.length; i++) {
+      const matchTs = confirmedDates[i];
+      const matchDate = new Date(matchTs);
+      // drawCutoff: 경기 다음날 월요일 11시
+      let drawCutoff = getScheduleDrawCutoff(`${matchDate.getFullYear()}-${String(matchDate.getMonth() + 1).padStart(2, '0')}-${String(matchDate.getDate()).padStart(2, '0')}`);
+      // drawCutoff는 경기 6일 전 월요일 11시이므로, 경기 다음날 월요일 11시로 맞추기 위해 date+7일
+      drawCutoff.setDate(drawCutoff.getDate() + 7);
+      // drawCutoff는 이미 KST 기준이므로 추가 보정 불필요
+      if (now < drawCutoff) {
+        // 아직 cutoff 전이면 이 경기를 보여주고 종료
+        selectedTs = matchTs;
+        break;
+      } else {
+        // drawCutoff를 지난 경기 → 다음 경기로 넘어감
+        selectedTs = confirmedDates[i + 1];
+        break;
+      }
+    }
+    if (selectedTs) {
+      const d = new Date(selectedTs);
       shareDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
   }
@@ -66,7 +86,7 @@ export function SharedBracket() {
     const days = ['일', '월', '화', '수', '목', '금', '토'];
     const dayName = days[date.getDay()];
 
-    return `${date.getFullYear().toString().slice(-2)}년 ${date.getMonth() + 1}월 ${date.getDate()}일(${dayName})`;
+    return `${date.getFullYear().toString().slice(-2)}년 ${date.getMonth() + 1}월 ${date.getDate()}일 (${dayName})`;
   };
 
   // 안전하게 사용자 데이터 매핑하는 헬퍼 함수

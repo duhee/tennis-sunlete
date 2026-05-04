@@ -12,11 +12,13 @@ import {
   TableHeader,
   TableRow,
 } from '../ui/table.js';
-import { getAttendanceRate, getTotalStats, getWinRate, seasonCodeToLabel, type User as UserType } from '../../data/mockData.js';
+import { getAttendanceRate, getTotalStats, getWinRate, seasonCodeToLabel, type User as UserType, type WeeklyMatchSchedule } from '../../data/mockData.js';
+import { getScheduleSeasonCode } from './scheduleUtils.js';
 
 interface MemberAttendancePanelProps {
   memberUsers: UserType[];
   allSeasons: string[];
+  schedules: WeeklyMatchSchedule[];
   selectedAttendanceSeasonFilter: string;
   onChangeAttendanceSeasonFilter: (seasonCode: string) => void;
   isMobilePreview: boolean;
@@ -25,11 +27,19 @@ interface MemberAttendancePanelProps {
 export function MemberAttendancePanel({
   memberUsers,
   allSeasons,
+  schedules,
   selectedAttendanceSeasonFilter,
   onChangeAttendanceSeasonFilter,
   isMobilePreview,
 }: MemberAttendancePanelProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
+
+  const computeAttended = (userId: string, seasonCode?: string): number =>
+    schedules.filter(s => {
+      if (seasonCode && getScheduleSeasonCode(s) !== seasonCode) return false;
+      return Array.isArray(s.participants) && s.participants.includes(userId);
+    }).length;
+
   const sortedUsers = [...memberUsers].sort((a, b) => getAttendanceRate(a) - getAttendanceRate(b));
 
   let usersToShow = sortedUsers;
@@ -57,16 +67,6 @@ export function MemberAttendancePanel({
       </CardHeader>
       {isExpanded && <CardContent>
         <div className="mb-4 flex gap-2 flex-wrap">
-          <button
-            onClick={() => onChangeAttendanceSeasonFilter('')}
-            className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
-              selectedAttendanceSeasonFilter === ''
-                ? 'bg-[#030213] text-white border-[#030213]'
-                : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'
-            }`}
-          >
-            전체
-          </button>
           {allSeasons.map(season => (
             <button
               key={season}
@@ -80,6 +80,16 @@ export function MemberAttendancePanel({
               {seasonCodeToLabel(season)}
             </button>
           ))}
+          <button
+            onClick={() => onChangeAttendanceSeasonFilter('')}
+            className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+              selectedAttendanceSeasonFilter === ''
+                ? 'bg-[#030213] text-white border-[#030213]'
+                : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'
+            }`}
+          >
+            전체
+          </button>
         </div>
 
         {isMobilePreview ? (
@@ -91,9 +101,11 @@ export function MemberAttendancePanel({
               if (selectedAttendanceSeasonFilter) {
                 const stat = (user.seasonStats ?? []).find((s: any) => s.seasonCode === selectedAttendanceSeasonFilter);
                 totals = stat ? { ...totals, ...stat } : totals;
-                attendanceRate = stat ? Math.round((stat.attended_sessions / (stat.total_sessions || 1)) * 100) : attendanceRate;
                 winRate = stat ? Math.round((stat.wins / ((stat.wins + stat.losses) || 1)) * 100) : winRate;
               }
+              const dynamicAttended = computeAttended(user.id, selectedAttendanceSeasonFilter || undefined);
+              totals = { ...totals, attended_sessions: dynamicAttended };
+              attendanceRate = Math.round((dynamicAttended / (totals.total_sessions || 1)) * 100);
               const isLowAttendance = attendanceRate < 60;
               return (
                 <div
@@ -149,9 +161,11 @@ export function MemberAttendancePanel({
                   if (selectedAttendanceSeasonFilter) {
                     const stat = (user.seasonStats ?? []).find((s: any) => s.seasonCode === selectedAttendanceSeasonFilter);
                     totals = stat ? { ...totals, ...stat } : totals;
-                    attendanceRate = stat ? Math.round((stat.attended_sessions / (stat.total_sessions || 1)) * 100) : attendanceRate;
                     winRate = stat ? Math.round((stat.wins / ((stat.wins + stat.losses) || 1)) * 100) : winRate;
                   }
+                  const dynamicAttended = computeAttended(user.id, selectedAttendanceSeasonFilter || undefined);
+                  totals = { ...totals, attended_sessions: dynamicAttended };
+                  attendanceRate = Math.round((dynamicAttended / (totals.total_sessions || 1)) * 100);
                   const isLowAttendance = attendanceRate < 60;
                   return (
                     <TableRow key={user.id} style={isLowAttendance ? { backgroundColor: '#FFF5F7' } : {}}>

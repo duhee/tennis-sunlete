@@ -161,8 +161,14 @@ export function MasterPage() {
   const allSeasons = useMemo(() => {
     const set = new Set<string>();
     memberUsers.forEach(u => (u.activeSeasons ?? []).forEach((s: string) => set.add(s)));
-    return Array.from(set).sort();
+    return Array.from(set).sort().reverse();
   }, [memberUsers]);
+
+  React.useEffect(() => {
+    if (allSeasons.length > 0 && selectedAttendanceSeasonFilter === '') {
+      setSelectedAttendanceSeasonFilter(allSeasons[0]);
+    }
+  }, [allSeasons]);
 
   React.useEffect(() => {
     setSeasonMemberDrafts(prev => {
@@ -530,6 +536,7 @@ export function MasterPage() {
         <MemberAttendancePanel
           memberUsers={memberUsers}
           allSeasons={allSeasons}
+          schedules={schedules}
           selectedAttendanceSeasonFilter={selectedAttendanceSeasonFilter}
           onChangeAttendanceSeasonFilter={setSelectedAttendanceSeasonFilter}
           isMobilePreview={isMobilePreview}

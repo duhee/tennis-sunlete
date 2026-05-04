@@ -11,7 +11,7 @@ import {
   Share2,
   CircleHelp,
 } from 'lucide-react';
-import { getScheduleStatus, type WeeklyMatchSchedule } from '../data/mockData.js';
+import { getScheduleStatus, getScheduleDrawCutoff, type WeeklyMatchSchedule } from '../data/mockData.js';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.js';
 import { Button } from '../components/ui/button.js';
 import { Badge } from '../components/ui/badge.js';
@@ -142,7 +142,48 @@ export function UserDashboard() {
   const activeTab: 'bracket' | 'attendance' =
     searchParams.get('tab') === 'attendance' ? 'attendance' : 'bracket';
 
-  const confirmedMatches = doublesMatches.filter(match => match.isConfirmed);
+  const confirmedMatches = useMemo(() => {
+    const now = new Date();
+    const allConfirmed = doublesMatches.filter((m: any) => m.isConfirmed && m.date);
+
+    // 고유 날짜(오름차순)
+    const uniqueDates = Array.from(
+      new Set(allConfirmed.map((m: any) => {
+        const d = new Date(m.date);
+        d.setHours(0, 0, 0, 0);
+        return d.getTime();
+      }))
+    ).sort((a, b) => (a as number) - (b as number)) as number[];
+
+    // cutoff 기준으로 표시할 날짜 결정
+    let activeDate: number | undefined;
+    for (let i = 0; i < uniqueDates.length; i++) {
+      const matchDate = new Date(uniqueDates[i]);
+      const dateStr = `${matchDate.getFullYear()}-${String(matchDate.getMonth() + 1).padStart(2, '0')}-${String(matchDate.getDate()).padStart(2, '0')}`;
+      const drawCutoff = getScheduleDrawCutoff(dateStr);
+      drawCutoff.setDate(drawCutoff.getDate() + 7);
+      if (now < drawCutoff) {
+        activeDate = uniqueDates[i];
+        break;
+      } else {
+        activeDate = uniqueDates[i + 1];
+        break;
+      }
+    }
+
+    if (!activeDate) return [];
+
+    const activeDateStr = (() => {
+      const d = new Date(activeDate);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    })();
+
+    return allConfirmed.filter((m: any) => {
+      const d = new Date(m.date);
+      const s = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return s === activeDateStr;
+    });
+  }, [doublesMatches]);
   const confirmedDate = confirmedMatches[0]?.date;
   const todayDateKey = useMemo(() => getTodayDateKey(), []);
 
@@ -294,12 +335,11 @@ export function UserDashboard() {
               <div className="mb-4">
                 <p className="text-base font-bold text-[#030213] mb-1">
                   {confirmedDate
-                    ? new Date(confirmedDate).toLocaleDateString('ko-KR', {
-                        year: '2-digit',
-                        month: 'long',
-                        day: 'numeric',
-                        weekday: 'short',
-                      }) + ' 10-13시'
+                    ? (() => {
+                        const d = new Date(confirmedDate);
+                        const days = ['일', '월', '화', '수', '목', '금', '토'];
+                        return `${d.getFullYear().toString().slice(-2)}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]}) 10-13시`;
+                      })()
                     : ''}
                 </p>
                 <p className="text-base font-bold text-[#030213]">필킨스 실내 2층</p>
@@ -504,9 +544,11 @@ export function UserDashboard() {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="font-medium">
-                          {new Date(schedule.date).toLocaleDateString('ko-KR', {
-                            month: 'long', day: 'numeric', weekday: 'short',
-                          })}
+                          {(() => {
+                            const d = new Date(schedule.date);
+                            const days = ['일', '월', '화', '수', '목', '금', '토'];
+                            return `${d.getFullYear().toString().slice(-2)}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]}) 10-13시`;
+                          })()}
                         </p>
                       </div>
                     </div>

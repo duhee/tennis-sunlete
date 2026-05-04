@@ -173,12 +173,11 @@ export function ScheduleSelector({
 
             // 참석 인원 집계
             const totalConfirmed = schedule.participants.length;
-            let male = 0, female = 0, guest = 0;
+            let male = 0, female = 0;
             schedule.participants.forEach((uid: string) => {
               const user = users.find((u: User) => u.id === uid);
               if (!user) return;
-              if (user.isGuest) guest++;
-              else if (user.gender === 'F') female++;
+              if (user.gender === 'F') female++;
               else male++;
             });
 
@@ -216,7 +215,7 @@ export function ScheduleSelector({
                 </div>
                 {/* 참석 인원 요약 */}
                 <div className="text-xs mt-1">
-                  참석 여 {female}명 / 남 {male}명{guest > 0 ? ` / 게스트 ${guest}명` : ''} (총 {totalConfirmed}명)
+                  여 {female}명 · 남 {male}명 · 총 {totalConfirmed}명
                 </div>
                 {isPast && (
                   <div className="text-xs text-gray-400 mt-1">과거 일정</div>
