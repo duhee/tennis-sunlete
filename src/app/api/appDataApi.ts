@@ -106,7 +106,12 @@ export async function fetchAppData(): Promise<AppData> {
       isGuest: user.is_guest,
       isWithdrawn: user.is_withdrawn,
       activeSeasons: Array.isArray(user.active_seasons) ? user.active_seasons : [],
-      seasonStats: Array.isArray(user.season_stats) ? user.season_stats : [],
+      seasonStats: Array.isArray(user.season_stats)
+        ? user.season_stats.map(stat => ({
+            ...stat,
+            draws: stat.draws ?? 0,
+          }))
+        : [],
     }));
 
     // schedules 매핑 (attendanceRequests 포함)
@@ -221,6 +226,10 @@ export async function saveAppData(data: AppData): Promise<void> {
     result: match.result ?? null,
     is_confirmed: match.isConfirmed,
   }));
+
+  if (import.meta.env.DEV) {
+    console.log('[saveAppData] doubles_matches upsert payload', doublesMatchRows);
+  }
 
   const { error: usersError } = await supabase.from('users').upsert(userRows);
   if (usersError) throw usersError;

@@ -12,6 +12,7 @@ export interface SeasonStats {
   attended_sessions: number;
   wins: number;
   losses: number;
+  draws: number;
 }
 
 export interface User {
@@ -69,6 +70,13 @@ export interface AttendanceRecordRow {
   placement: 'participant' | 'waitlist';
 }
 
+export interface MatchPointMetrics {
+  scoredPoints: number;
+  concededPoints: number;
+  gameDifference: number;
+  gameWinRate: number;
+}
+
 // Helper functions
 
 export const seasonCodeToLabel = (code: string): string => {
@@ -97,6 +105,23 @@ export const getCurrentSeasonCode = (): string => {
   if (month >= 11) return `${yy}S4`;
 
   // January belongs to previous year's S4
+  const prevYy = ((year - 1) % 100).toString().padStart(2, '0');
+  return `${prevYy}S4`;
+};
+
+const inferSeasonCodeFromDate = (date: string): string | undefined => {
+  const d = new Date(`${date}T00:00:00+09:00`);
+  if (Number.isNaN(d.getTime())) return undefined;
+
+  const month = d.getMonth() + 1;
+  const year = d.getFullYear();
+  const yy = (year % 100).toString().padStart(2, '0');
+
+  if (month >= 2 && month <= 4) return `${yy}S1`;
+  if (month >= 5 && month <= 7) return `${yy}S2`;
+  if (month >= 8 && month <= 10) return `${yy}S3`;
+  if (month >= 11) return `${yy}S4`;
+
   const prevYy = ((year - 1) % 100).toString().padStart(2, '0');
   return `${prevYy}S4`;
 };
@@ -190,13 +215,14 @@ export const formatAsKstOffset = (date: Date): string => {
 };
 
 // Calculate total stats across all seasons
-export const getTotalStats = (user: User): { total_sessions: number; attended_sessions: number; wins: number; losses: number } => {
+export const getTotalStats = (user: User): { total_sessions: number; attended_sessions: number; wins: number; losses: number; draws: number } => {
   const seasonStats = user.seasonStats || [];
   return {
     total_sessions: seasonStats.reduce((sum, s) => sum + s.total_sessions, 0),
     attended_sessions: seasonStats.reduce((sum, s) => sum + s.attended_sessions, 0),
     wins: seasonStats.reduce((sum, s) => sum + s.wins, 0),
     losses: seasonStats.reduce((sum, s) => sum + s.losses, 0),
+    draws: seasonStats.reduce((sum, s) => sum + (s.draws ?? 0), 0),
   };
 };
 
@@ -231,34 +257,83 @@ export const getAttendanceRate = (user: User, seasonCode?: string): number => {
 export const getWinRate = (user: User, seasonCode?: string): number => {
   let wins = 0;
   let losses = 0;
+  let draws = 0;
 
   if (seasonCode) {
     const stat = getSeasonStats(user, seasonCode);
     if (!stat) return 0;
     wins = stat.wins;
     losses = stat.losses;
+    draws = stat.draws ?? 0;
   } else {
     // Across all seasons
     const seasonStats = user.seasonStats || [];
     wins = seasonStats.reduce((sum, s) => sum + s.wins, 0);
     losses = seasonStats.reduce((sum, s) => sum + s.losses, 0);
+    draws = seasonStats.reduce((sum, s) => sum + (s.draws ?? 0), 0);
   }
 
-  const totalGames = wins + losses;
+  const totalGames = wins + losses + draws;
   if (totalGames === 0) return 0;
-  return Math.round((wins / totalGames) * 100);
+  return Math.round(((wins + draws * 0.5) / totalGames) * 100);
 };
 
-const getAttendanceRateByUserId = (userId: string, users: User[]): number => {
+export const getMatchPointMetrics = (
+  userId: string,
+  doublesMatches: DoublesMatch[],
+  seasonCode?: string
+): MatchPointMetrics => {
+  let scoredPoints = 0;
+  let concededPoints = 0;
+
+  doublesMatches.forEach(match => {
+    if (typeof match.scoreA !== 'number' || typeof match.scoreB !== 'number') {
+      return;
+    }
+
+    if (seasonCode && inferSeasonCodeFromDate(match.date) !== seasonCode) {
+      return;
+    }
+
+    const onTeamA = match.teamA.includes(userId);
+    const onTeamB = match.teamB.includes(userId);
+
+    if (!onTeamA && !onTeamB) {
+      return;
+    }
+
+    scoredPoints += onTeamA ? match.scoreA : match.scoreB;
+    concededPoints += onTeamA ? match.scoreB : match.scoreA;
+  });
+
+  const totalPoints = scoredPoints + concededPoints;
+
+  return {
+    scoredPoints,
+    concededPoints,
+    gameDifference: scoredPoints - concededPoints,
+    gameWinRate: totalPoints > 0 ? Math.round((scoredPoints / totalPoints) * 1000) / 10 : 0,
+  };
+};
+
+const getAttendanceRateByUserId = (userId: string, users: User[], seasonCode?: string): number => {
   const user = users.find(item => item.id === userId);
   // Unknown users (guests) get 0% so they still qualify in fairness sort
-  return user ? getAttendanceRate(user) : 0;
+  return user ? getAttendanceRate(user, seasonCode) : 0;
 };
 
-const sortRequestsByPolicy = (requests: AttendanceRequest[], users: User[]): AttendanceRequest[] => {
-  // Fairness policy: lower attendance rate first, then earlier click first.
+const sortRequestsByPolicy = (requests: AttendanceRequest[], users: User[], seasonCode?: string): AttendanceRequest[] => {
+  // Fairness policy: lower attendance rate first, then earlier click first, then guest always last.
   return [...requests].sort((a, b) => {
-    const rateDiff = getAttendanceRateByUserId(a.userId, users) - getAttendanceRateByUserId(b.userId, users);
+    const userA = users.find(u => u.id === a.userId);
+    const userB = users.find(u => u.id === b.userId);
+    const isGuestA = userA?.isGuest ?? a.userId.startsWith('guest-');
+    const isGuestB = userB?.isGuest ?? b.userId.startsWith('guest-');
+    if (isGuestA !== isGuestB) {
+      // 정회원 우선, 게스트는 항상 뒤
+      return isGuestA ? 1 : -1;
+    }
+    const rateDiff = getAttendanceRateByUserId(a.userId, users, seasonCode) - getAttendanceRateByUserId(b.userId, users, seasonCode);
     if (rateDiff !== 0) {
       return rateDiff;
     }
@@ -266,10 +341,10 @@ const sortRequestsByPolicy = (requests: AttendanceRequest[], users: User[]): Att
   });
 };
 
-export const deriveParticipantState = (schedule: WeeklyMatchSchedule, users: User[] = []) => {
+export const deriveParticipantState = (schedule: WeeklyMatchSchedule, users: User[] = [], seasonCode?: string) => {
   // Only count 'attend' status for participants/waitlist
   const attendRequests = schedule.attendanceRequests.filter(row => row.status === 'attend');
-  const ranked = sortRequestsByPolicy(attendRequests, users);
+  const ranked = sortRequestsByPolicy(attendRequests, users, seasonCode);
   const participants = ranked.slice(0, schedule.maxParticipants).map(row => row.userId);
   const waitlist = ranked.slice(schedule.maxParticipants).map(row => row.userId);
 
@@ -310,7 +385,8 @@ export const getScheduleStatus = (
 };
 
 export const refreshScheduleSnapshot = (schedule: WeeklyMatchSchedule, users: User[] = []): WeeklyMatchSchedule => {
-  const { participants, waitlist } = deriveParticipantState(schedule, users);
+  const seasonCode = schedule.seasonCode;
+  const { participants, waitlist } = deriveParticipantState(schedule, users, seasonCode);
   return {
     ...schedule,
     participants,
@@ -409,7 +485,8 @@ export const applyReplacement = (
 };
 
 export const getAttendanceRecords = (schedule: WeeklyMatchSchedule, users: User[]): AttendanceRecordRow[] => {
-  const { rankedRequests, participants } = deriveParticipantState(schedule, users);
+  const seasonCode = schedule.seasonCode;
+  const { rankedRequests, participants } = deriveParticipantState(schedule, users, seasonCode);
 
   return rankedRequests.map(row => {
     const user = users.find(item => item.id === row.userId);
@@ -418,7 +495,7 @@ export const getAttendanceRecords = (schedule: WeeklyMatchSchedule, users: User[
       name: user?.name ?? row.userId,
       gender: user?.gender ?? 'M',
       isGuest: user?.isGuest ?? false,
-      attendanceRate: user ? getAttendanceRate(user) : 0,
+      attendanceRate: user ? getAttendanceRate(user, seasonCode) : 0,
       requestedAt: row.requestedAt,
       placement: participants.includes(row.userId) ? 'participant' : 'waitlist',
     };
@@ -426,7 +503,8 @@ export const getAttendanceRecords = (schedule: WeeklyMatchSchedule, users: User[
 };
 
 export const shouldShowUrgentAlert = (schedule: WeeklyMatchSchedule): boolean => {
-  const { participants } = deriveParticipantState(schedule);
+  const seasonCode = schedule.seasonCode;
+  const { participants } = deriveParticipantState(schedule, [], seasonCode);
   return participants.length < 4 && getScheduleStatus(schedule) === 'open';
 };
 
@@ -434,7 +512,7 @@ export const shouldShowUrgentAlert = (schedule: WeeklyMatchSchedule): boolean =>
 export const updateUserSeasonStats = (
   user: User,
   seasonCode: string,
-  updates: { total_sessions?: number; attended_sessions?: number; wins?: number; losses?: number }
+  updates: { total_sessions?: number; attended_sessions?: number; wins?: number; losses?: number; draws?: number }
 ): User => {
   const stats = [...(user.seasonStats || [])];
   const existingIdx = stats.findIndex(s => s.seasonCode === seasonCode);
@@ -446,6 +524,7 @@ export const updateUserSeasonStats = (
       attended_sessions: updates.attended_sessions ?? stats[existingIdx].attended_sessions,
       wins: updates.wins ?? stats[existingIdx].wins,
       losses: updates.losses ?? stats[existingIdx].losses,
+      draws: updates.draws ?? stats[existingIdx].draws ?? 0,
     };
   } else {
     stats.push({
@@ -454,6 +533,7 @@ export const updateUserSeasonStats = (
       attended_sessions: updates.attended_sessions ?? 0,
       wins: updates.wins ?? 0,
       losses: updates.losses ?? 0,
+      draws: updates.draws ?? 0,
     });
   }
 

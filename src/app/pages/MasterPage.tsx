@@ -1,43 +1,137 @@
-import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.js';
-import { useAppData } from '../context/AppDataContext.js';
 import { PageLayout } from '../components/PageLayout.js';
-import {
-  Smartphone,
-  Monitor,
-} from 'lucide-react';
-import { getScheduleStatus, seasonCodeToLabel, type User as UserType } from '../data/mockData.js';
-import { toast } from 'sonner';
-import { Toaster } from '../components/ui/sonner.js';
+import { ScheduleSelector } from '../components/admin/ScheduleSelector.js';
+import { DrawGenerator } from '../components/admin/DrawGenerator.js';
+import { ReplacementManager } from '../components/admin/ReplacementManager.js';
+import { AttendanceRecordsView } from '../components/admin/AttendanceRecordsView.js';
+import { MemberAttendancePanel } from '../components/admin/MemberAttendancePanel.js';
+import { GuestListPanel } from '../components/admin/GuestListPanel.js';
+import { SeasonManager } from '../components/admin/SeasonManager.js';
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction
 } from '../components/ui/alert-dialog.js';
-import { useIsMobile } from '../components/ui/use-mobile.js';
 import {
-  ScheduleSelector,
-  DrawGenerator,
-  ReplacementManager,
-  AttendanceRecordsView,
-  MemberAttendancePanel,
-  GuestListPanel,
-  SeasonManager,
-  getScheduleSeasonCode,
-  getDefaultScheduleId,
-  ADMIN_VIEW_MODE_STORAGE_KEY,
-  type GeneratedMatch,
-  type ReplacementParams,
-} from '../components/admin/index.js';
-import { getWinRate } from '../data/mockData.js';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
+} from '../components/ui/dialog.js';
+
+import React, { useState, useMemo, useEffect } from 'react';
+
+import { useAuth } from '../context/AuthContext.js';
+import { useAppData } from '../context/AppDataContext.js';
+import { useNavigate } from 'react-router-dom';
+import { useIsMobile } from '../components/ui/use-mobile.js';
+import { ADMIN_VIEW_MODE_STORAGE_KEY } from '../components/admin/types.js';
+import { getDefaultScheduleId } from '../components/admin/scheduleUtils.js';
+import { getScheduleStatus } from '../data/mockData.js';
+import { getScheduleSeasonCode } from '../components/admin/scheduleUtils.js';
+import { seasonCodeToLabel, getWinRate, getAttendanceRate } from '../data/mockData.js';
 import { supabase } from '../api/supabaseClient.js';
+import { Toaster } from '../components/ui/sonner.js';
+import { toast } from 'sonner';
+import type { GeneratedMatch, ReplacementParams } from '../components/admin/types.js';
+import type { User as UserType } from '../data/mockData.js';
+
+type ScoreInputPanelProps = {
+  scheduleId: string;
+  doublesMatches: any[];
+  getUserById: (id: string) => any;
+  onSaveScores: (scores: { id: string; scoreA: number; scoreB: number }[]) => void;
+  onClose: () => void;
+};
+
+function ScoreInputPanel({ scheduleId, doublesMatches, getUserById, onSaveScores, onClose }: ScoreInputPanelProps) {
+  const matches = doublesMatches.filter((m: any) => m.scheduleId === scheduleId);
+  const [scores, setScores] = React.useState<{ id: string; scoreA: string; scoreB: string }[]>(
+    () => matches.map((m: any) => ({
+      id: m.id,
+      scoreA: m.scoreA ?? '',
+      scoreB: m.scoreB ?? '',
+    }))
+  );
+
+  const handleChange = (idx: number, field: 'scoreA' | 'scoreB', value: string) => {
+    setScores((prev) => prev.map((s, i) => i === idx ? { ...s, [field]: value.replace(/[^0-9]/g, '') } : s));
+  };
+
+  const handleSave = () => {
+    const parsed = scores
+      .map((item: { id: string; scoreA: string; scoreB: string }) => ({
+        id: item.id,
+        scoreA: Number(item.scoreA),
+        scoreB: Number(item.scoreB),
+      }))
+      .filter((item: { id: string; scoreA: number; scoreB: number }) =>
+        Number.isFinite(item.scoreA) && Number.isFinite(item.scoreB)
+      );
+
+    if (parsed.length === 0) {
+      toast.error('저장할 스코어가 없습니다.');
+      return;
+    }
+
+    onSaveScores(parsed);
+    onClose();
+  };
+
+  if (matches.length === 0) return <div className="text-sm text-gray-500">해당 일정의 매치 데이터가 없습니다.</div>;
+
+  return (
+    <form
+      onSubmit={e => {
+        e.preventDefault();
+        handleSave();
+      }}
+      className="space-y-4"
+    >
+      {matches.map((m: any, idx: number) => (
+        <div key={m.id} className="flex items-center gap-2">
+          <span className="font-bold">{idx + 1}경기</span>
+          <span className="text-xs text-gray-500">(
+            {m.teamA.map((id: string) => getUserById(id)?.name || '?').join(', ')}
+            vs
+            {m.teamB.map((id: string) => getUserById(id)?.name || '?').join(', ')}
+          )</span>
+          <input
+            type="number"
+            min={0}
+            className="w-12 border rounded px-1 mx-1"
+            value={scores[idx].scoreA}
+            onChange={e => handleChange(idx, 'scoreA', e.target.value)}
+            placeholder="A"
+          />
+          :
+          <input
+            type="number"
+            min={0}
+            className="w-12 border rounded px-1 mx-1"
+            value={scores[idx].scoreB}
+            onChange={e => handleChange(idx, 'scoreB', e.target.value)}
+            placeholder="B"
+          />
+        </div>
+      ))}
+      <div className="flex justify-end gap-2 mt-4">
+        <button type="button" className="px-3 py-1 rounded border" onClick={onClose}>취소</button>
+        <button type="submit" className="px-3 py-1 rounded bg-black text-white">저장</button>
+      </div>
+    </form>
+  );
+}
+
 
 export function MasterPage() {
+      // 과거 일정 스코어 입력 팝업 상태
+      const [scoreDialogOpen, setScoreDialogOpen] = useState(false);
+      const [scoreDialogSchedule, setScoreDialogSchedule] = useState<any>(null);
     // 게스트 성별 필터 상태
     const [guestGenderTab, setGuestGenderTab] = useState<'all' | 'M' | 'F'>('F');
   const { isAdmin } = useAuth();
@@ -55,6 +149,7 @@ export function MasterPage() {
     updateUserSeasonStats,
     getAttendanceRecordsForSchedule,
     confirmBracketForSchedule,
+    recordMatchScore,
     addSchedulesForSeason,
   } = useAppData();
   const navigate = useNavigate();
@@ -151,11 +246,17 @@ export function MasterPage() {
     // 해당 시즌 멤버만 정규 멤버로 취급, 나머지는 게스트
     const seasonMemberIds = new Set(selectedScheduleSeasonMembers.map(m => m.id));
     
-    return records.map((record: any) => ({
-      ...record,
-      isGuest: !seasonMemberIds.has(record.userId)
-    }));
-  }, [selectedSchedule, schedules, selectedScheduleSeasonMembers]);
+    return records.map((record: any) => {
+      const user = users.find(u => u.id === record.userId);
+      // 해당 시즌의 출석률 계산
+      const seasonAttendanceRate = user ? getAttendanceRate(user, selectedScheduleSeasonCode) : 0;
+      return {
+        ...record,
+        attendanceRate: seasonAttendanceRate,
+        isGuest: !seasonMemberIds.has(record.userId)
+      };
+    });
+  }, [selectedSchedule, schedules, selectedScheduleSeasonMembers, selectedScheduleSeasonCode, users]);
 
   const absentUsers = useMemo(() => {
     if (!selectedSchedule) return [];
@@ -389,7 +490,7 @@ export function MasterPage() {
           ? existingStats.map((s: any) =>
               s.seasonCode === season ? { ...s, total_sessions: totalSessions } : s
             )
-          : [...existingStats, { seasonCode: season, total_sessions: totalSessions, attended_sessions: 0, wins: 0, losses: 0 }];
+          : [...existingStats, { seasonCode: season, total_sessions: totalSessions, attended_sessions: 0, wins: 0, losses: 0, draws: 0 }];
         updateUserSeasonStats(member.id, updatedStats);
       }
     });
@@ -406,6 +507,13 @@ export function MasterPage() {
     setSelectedScheduleId(scheduleId);
     setGeneratedBracket([]);
     setBracketConfirmed(false);
+  };
+
+  const handleSaveScores = (scores: { id: string; scoreA: number; scoreB: number }[]) => {
+    scores.forEach((item: { id: string; scoreA: number; scoreB: number }) => {
+      recordMatchScore(item.id, item.scoreA, item.scoreB);
+    });
+    toast.success(`${scores.length}개 경기 스코어를 저장했습니다.`);
   };
 
   const handleApplyReplacementFromComponent = (params: ReplacementParams) => {
@@ -594,7 +702,31 @@ export function MasterPage() {
             showClosedPastSchedules={showClosedPastSchedules}
             onToggleShowClosed={setShowClosedPastSchedules}
             isMobilePreview={isMobilePreview}
+             onPastScheduleDoubleClick={(schedule: any) => {
+               setScoreDialogSchedule(schedule);
+               setScoreDialogOpen(true);
+             }}
           />
+                  {/* 과거 일정 스코어 입력 다이얼로그 */}
+                  <Dialog open={scoreDialogOpen} onOpenChange={setScoreDialogOpen}>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>스코어 입력: {scoreDialogSchedule?.date}</DialogTitle>
+                        <DialogDescription>
+                          해당 일정의 매치별 스코어를 입력하세요.
+                        </DialogDescription>
+                      </DialogHeader>
+                      {scoreDialogSchedule && (
+                        <ScoreInputPanel
+                          scheduleId={scoreDialogSchedule.id}
+                          doublesMatches={doublesMatches}
+                          getUserById={getUserById}
+                          onSaveScores={handleSaveScores}
+                          onClose={() => setScoreDialogOpen(false)}
+                        />
+                      )}
+                    </DialogContent>
+                  </Dialog>
           <DrawGenerator
             selectedSchedule={selectedSchedule ?? null}
             generatedBracket={generatedBracket}
@@ -630,6 +762,7 @@ export function MasterPage() {
           memberUsers={memberUsers}
           allSeasons={allSeasons}
           schedules={schedules}
+          doublesMatches={doublesMatches}
           selectedAttendanceSeasonFilter={selectedAttendanceSeasonFilter}
           onChangeAttendanceSeasonFilter={setSelectedAttendanceSeasonFilter}
           isMobilePreview={isMobilePreview}

@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext.js';
 import { PageLayout } from '../components/PageLayout.js';
 import { 
   getAttendanceRate, 
+  getCurrentSeasonCode,
+  getMatchPointMetrics,
   getWinRate,
   getTotalStats,
   seasonCodeToLabel,
@@ -15,55 +17,41 @@ import { Button } from '../components/ui/button.js';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog.js';
 
-type SeasonInfo = {
-  key: string;
-  label: string;
-  sortDate: string;
-};
-
-function toSeasonInfo(dateString: string): SeasonInfo {
+function inferSeasonCodeFromDate(dateString: string): string | undefined {
   const source = new Date(`${dateString}T00:00:00+09:00`);
+  if (Number.isNaN(source.getTime())) return undefined;
+
   const month = source.getMonth() + 1;
   const year = source.getFullYear();
+  const yy = String(year % 100).padStart(2, '0');
 
-  let startYear = year;
-  let startMonth = 2;
+  if (month >= 2 && month <= 4) return `${yy}S1`;
+  if (month >= 5 && month <= 7) return `${yy}S2`;
+  if (month >= 8 && month <= 10) return `${yy}S3`;
+  if (month >= 11) return `${yy}S4`;
 
-  if (month === 1) {
-    startYear = year - 1;
-    startMonth = 11;
-  } else if (month >= 2 && month <= 4) {
-    startYear = year;
-    startMonth = 2;
-  } else if (month >= 5 && month <= 7) {
-    startYear = year;
-    startMonth = 5;
-  } else if (month >= 8 && month <= 10) {
-    startYear = year;
-    startMonth = 8;
-  } else {
-    startYear = year;
-    startMonth = 11;
-  }
+  return `${String((year - 1) % 100).padStart(2, '0')}S4`;
+}
 
-  const endMonth = startMonth === 11 ? 1 : startMonth + 2;
-  const endYear = startMonth === 11 ? startYear + 1 : startYear;
-  const shortStartYear = String(startYear).slice(2);
-  const shortEndYear = String(endYear).slice(2);
+function seasonCodeToSortDate(seasonCode: string): string {
+  const match = seasonCode.match(/^(\d{2})S([1-4])$/);
+  if (!match) return '0000-00-01';
 
-  const label = startYear === endYear
-    ? `${shortStartYear}년 ${startMonth}-${endMonth}월`
-    : `${shortStartYear}년 ${startMonth}월-${shortEndYear}년 ${endMonth}월`;
-
-  return {
-    key: `${startYear}-${String(startMonth).padStart(2, '0')}`,
-    label,
-    sortDate: `${startYear}-${String(startMonth).padStart(2, '0')}-01`,
+  const year = 2000 + Number(match[1]);
+  const seasonIndex = Number(match[2]);
+  const startMonthMap: Record<number, string> = {
+    1: '02',
+    2: '05',
+    3: '08',
+    4: '11',
   };
+
+  return `${year}-${startMonthMap[seasonIndex] ?? '01'}-01`;
 }
 
 
@@ -148,93 +136,64 @@ export function ProfilePage() {
 
 
   const seasonStats = useMemo(() => {
-    if (!userIdSafe) return [];
-    const statsMap = new Map<string, {
-      label: string;
-      sortDate: string;
-      totalSessions: number;
-      attendedSessions: number;
-      wins: number;
-      losses: number;
-      draws: number;
-    }>();
+    if (!user) return [];
 
-    schedules.forEach((schedule: any) => {
-      const season = toSeasonInfo(schedule.date);
-      const prev = statsMap.get(season.key) ?? {
-        label: season.label,
-        sortDate: season.sortDate,
-        totalSessions: 0,
-        attendedSessions: 0,
-        wins: 0,
-        losses: 0,
-        draws: 0,
-      };
+    const seasonKeys = new Set<string>();
+    (user.activeSeasons ?? []).forEach(seasonCode => seasonKeys.add(seasonCode));
+    (user.seasonStats ?? []).forEach(stat => seasonKeys.add(stat.seasonCode));
 
-      prev.totalSessions += 1;
-      if (includesUserId(schedule.participants, userIdSafe)) {
-        prev.attendedSessions += 1;
+    schedules.forEach(schedule => {
+      const seasonCode = schedule.seasonCode || inferSeasonCodeFromDate(schedule.date);
+      if (seasonCode && includesUserId(schedule.participants, userIdSafe)) {
+        seasonKeys.add(seasonCode);
       }
-
-      statsMap.set(season.key, prev);
     });
 
-    doublesMatches
-      .filter((match: any) => includesUserId(match.teamA, userIdSafe) || includesUserId(match.teamB, userIdSafe))
-      .forEach((match: any) => {
-        const season = toSeasonInfo(match.date);
-        const prev = statsMap.get(season.key) ?? {
-          label: season.label,
-          sortDate: season.sortDate,
-          totalSessions: 0,
-          attendedSessions: 0,
-          wins: 0,
-          losses: 0,
-          draws: 0,
-        };
+    doublesMatches.forEach(match => {
+      const seasonCode = inferSeasonCodeFromDate(match.date);
+      if (seasonCode && (includesUserId(match.teamA, userIdSafe) || includesUserId(match.teamB, userIdSafe))) {
+        seasonKeys.add(seasonCode);
+      }
+    });
 
-        const userOnTeamA = includesUserId(match.teamA, userIdSafe);
-        if (match.result === 'draw') {
-          prev.draws += 1;
-        } else if (match.result === 'teamA' || match.result === 'teamB') {
-          const won = (match.result === 'teamA' && userOnTeamA) || (match.result === 'teamB' && !userOnTeamA);
-          if (won) {
-            prev.wins += 1;
-          } else {
-            prev.losses += 1;
-          }
-        }
-
-        statsMap.set(season.key, prev);
-      });
-
-    return [...statsMap.entries()]
-      .map(([key, value]) => {
-        const attendanceRateBySeason = value.totalSessions > 0
-          ? Math.round((value.attendedSessions / value.totalSessions) * 100)
+    return [...seasonKeys]
+      .map((seasonCode) => {
+        const stat = (user.seasonStats ?? []).find(item => item.seasonCode === seasonCode);
+        const totalSessions = stat?.total_sessions ?? 0;
+        const attendedSessions = stat?.attended_sessions ?? 0;
+        const wins = stat?.wins ?? 0;
+        const losses = stat?.losses ?? 0;
+        const draws = stat?.draws ?? 0;
+        const attendanceRateBySeason = totalSessions > 0
+          ? Math.round((attendedSessions / totalSessions) * 100)
           : 0;
-        const decisiveGames = value.wins + value.losses;
-        const winRateBySeason = decisiveGames > 0
-          ? Math.round((value.wins / decisiveGames) * 100)
+        const totalGames = wins + losses + draws;
+        const winRateBySeason = totalGames > 0
+          ? Math.round(((wins + draws * 0.5) / totalGames) * 100)
           : 0;
 
         return {
-          key,
-          ...value,
+          key: seasonCode,
+          label: seasonCodeToLabel(seasonCode),
+          sortDate: seasonCodeToSortDate(seasonCode),
+          totalSessions,
+          attendedSessions,
+          wins,
+          losses,
+          draws,
           attendanceRateBySeason,
           winRateBySeason,
         };
       })
       .sort((a, b) => b.sortDate.localeCompare(a.sortDate));
-  }, [schedules, doublesMatches, userIdSafe]);
+  }, [doublesMatches, schedules, user, userIdSafe]);
 
-  const today = new Date();
-  const todayKey = toSeasonInfo(today.toISOString().slice(0, 10)).key;
+  const currentSeasonKey = getCurrentSeasonCode();
   // 이번 시즌 통계만 추출
-  const currentSeasonStat = seasonStats.find(item => item.key === todayKey);
+  const currentSeasonStat = seasonStats.find(item => item.key === currentSeasonKey);
   // 지난 시즌: 시즌 시작일이 오늘보다 과거인 시즌만 포함
   const pastSeasonStats = seasonStats.filter(item => {
-    return new Date(item.sortDate) < today && item.key !== todayKey;
+    return item.sortDate < seasonCodeToSortDate(currentSeasonKey) && item.key !== currentSeasonKey;
   });
 
   // 이번 시즌 출석/경기/승/패/무/승률/출석률
@@ -244,27 +203,28 @@ export function ProfilePage() {
   const seasonLosses = currentSeasonStat?.losses ?? 0;
   const seasonDraws = currentSeasonStat?.draws ?? 0;
   const seasonAttendanceRate = seasonTotalSessions > 0 ? Math.round((seasonAttendedSessions / seasonTotalSessions) * 100) : 0;
-  const seasonDecisiveGames = seasonWins + seasonLosses;
-  const seasonWinRate = seasonDecisiveGames > 0 ? Math.round((seasonWins / seasonDecisiveGames) * 100) : 0;
+  const seasonTotalGames = seasonWins + seasonLosses + seasonDraws;
+  const seasonWinRate = seasonTotalGames > 0 ? Math.round(((seasonWins + seasonDraws * 0.5) / seasonTotalGames) * 100) : 0;
+  const seasonPointMetrics = getMatchPointMetrics(userIdSafe, doublesMatches, currentSeasonKey);
 
   // 이번 시즌 출석 일정/경기 기록만 추출
   const attendedSchedules = useMemo(
     () =>
       schedules
         .filter(schedule => {
-          const season = toSeasonInfo(schedule.date);
-          return userIdSafe && includesUserId(schedule.participants, userIdSafe) && season.key === todayKey;
+          const seasonCode = schedule.seasonCode || inferSeasonCodeFromDate(schedule.date);
+          return userIdSafe && includesUserId(schedule.participants, userIdSafe) && seasonCode === currentSeasonKey;
         })
         .sort((a, b) => b.date.localeCompare(a.date)),
-    [schedules, userIdSafe, todayKey]
+    [schedules, userIdSafe, currentSeasonKey]
   );
 
   const myMatchRecords = useMemo(
     () =>
       doublesMatches
         .filter(match => {
-          const season = toSeasonInfo(match.date);
-          return userIdSafe && (includesUserId(match.teamA, userIdSafe) || includesUserId(match.teamB, userIdSafe)) && season.key === todayKey;
+          const seasonCode = inferSeasonCodeFromDate(match.date);
+          return userIdSafe && (includesUserId(match.teamA, userIdSafe) || includesUserId(match.teamB, userIdSafe)) && seasonCode === currentSeasonKey;
         })
         .sort((a, b) => b.date.localeCompare(a.date))
         .map(match => {
@@ -302,7 +262,7 @@ export function ProfilePage() {
             resultText,
           };
         }),
-    [doublesMatches, getUserFromStore, userIdSafe, todayKey]
+    [doublesMatches, getUserFromStore, userIdSafe, currentSeasonKey]
   );
 
   const attendanceDatesToShow = attendedSchedules.length > 0 ? attendedSchedules.map(schedule => schedule.date) : [];
@@ -337,8 +297,8 @@ export function ProfilePage() {
 
     return [...statsMap.entries()]
       .map(([name, stat]) => {
-        const decisiveGames = stat.wins + stat.losses;
-        const winRateByPair = decisiveGames > 0 ? Math.round((stat.wins / decisiveGames) * 100) : 0;
+        const totalGames = stat.wins + stat.losses + stat.draws;
+        const winRateByPair = totalGames > 0 ? Math.round(((stat.wins + stat.draws * 0.5) / totalGames) * 100) : 0;
         return { name, ...stat, winRateByPair };
       })
       .sort((a, b) => b.winRateByPair - a.winRateByPair || b.total - a.total);
@@ -387,11 +347,13 @@ export function ProfilePage() {
               <Dialog open={!!selectedSeasonKey} onOpenChange={open => !open && setSelectedSeasonKey(null)}>
                 <DialogContent 
                   className="top-0 left-0 translate-x-0 translate-y-0 w-screen h-screen max-w-none rounded-none border-0 p-0 gap-0 overflow-hidden data-[state=open]:animate-none data-[state=closed]:animate-none data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 duration-0"
-                  aria-describedby="season-detail-desc"
                 >
                   <div className="h-full flex flex-col bg-white px-6 pt-8 pb-6">
                     <DialogHeader>
                       <DialogTitle className="text-2xl">시즌 상세</DialogTitle>
+                      <DialogDescription className="sr-only">
+                        선택한 시즌의 출석률, 승률, 득실차, 게임 승률, 출석 내역, 경기 기록을 확인하는 상세 팝업입니다.
+                      </DialogDescription>
                     </DialogHeader>
                     <div className="flex-1 min-h-0 overflow-y-auto space-y-6 mt-6">
                       {(() => {
@@ -399,12 +361,12 @@ export function ProfilePage() {
                         if (selectedSeasonKey) {
                           const stat = seasonStats.find((s) => s.key === selectedSeasonKey);
                           let statData = stat;
-                          let label = stat?.label || '';
+                          let label = stat?.label || seasonCodeToLabel(selectedSeasonKey);
                           if (!statData) {
                             statData = {
-                              key: '',
-                              label: '',
-                              sortDate: '',
+                              key: selectedSeasonKey,
+                              label,
+                              sortDate: seasonCodeToSortDate(selectedSeasonKey),
                               totalSessions: 0,
                               attendedSessions: 0,
                               wins: 0,
@@ -421,58 +383,55 @@ export function ProfilePage() {
                           const seasonWins = statData?.wins ?? 0;
                           const seasonLosses = statData?.losses ?? 0;
                           const seasonDraws = statData?.draws ?? 0;
-                          const seasonDecisiveGames = seasonWins + seasonLosses;
-                          const seasonWinRate = seasonDecisiveGames > 0 ? Math.round((seasonWins / seasonDecisiveGames) * 100) : 0;
-                          const seasonAttendanceDates = stat
-                            ? schedules
-                                .filter((sch) => {
-                                  const s = toSeasonInfo(sch.date);
-                                  return !!user && includesUserId(sch.participants, user.id) && s.key === selectedSeasonKey;
-                                })
-                                .map((sch) => sch.date)
-                                .sort((a, b) => b.localeCompare(a))
-                            : [];
-                          const seasonMatchRecords = stat
-                            ? doublesMatches
-                                .filter((match) => {
-                                  const s = toSeasonInfo(match.date);
-                                  return !!user && (includesUserId(match.teamA, user.id) || includesUserId(match.teamB, user.id)) && s.key === selectedSeasonKey;
-                                })
-                                .sort((a, b) => b.date.localeCompare(a.date))
-                                .map((match) => {
-                                  const teamAIds = safeIdList(match.teamA);
-                                  const teamBIds = safeIdList(match.teamB);
-                                  const userOnTeamA = user ? teamAIds.includes(user.id) : false;
-                                  const teammateId = userOnTeamA && user
-                                    ? teamAIds.find((id: string) => id !== user.id)
-                                    : user
-                                    ? teamBIds.find((id: string) => id !== user.id)
-                                    : undefined;
-                                  const opponentIds = userOnTeamA && user ? teamBIds : teamAIds;
-                                  const teammateName = teammateId ? getUserFromStore(teammateId as string)?.name ?? '알 수 없음' : '단식';
-                                  const opponentNames = opponentIds
-                                    .map((id: string) => getUserFromStore(id)?.name ?? '알 수 없음')
-                                    .join(', ');
-                                  const hasScore = typeof match.scoreA === 'number' && typeof match.scoreB === 'number';
-                                  const myScore = hasScore ? (userOnTeamA ? match.scoreA : match.scoreB) : null;
-                                  const oppScore = hasScore ? (userOnTeamA ? match.scoreB : match.scoreA) : null;
-                                  let resultText = '기록 없음';
-                                  if (match.result === 'draw') {
-                                    resultText = '무승부';
-                                  } else if (match.result === 'teamA' || match.result === 'teamB') {
-                                    const won = (match.result === 'teamA' && userOnTeamA) || (match.result === 'teamB' && !userOnTeamA);
-                                    resultText = won ? '승' : '패';
-                                  }
-                                  return {
-                                    id: match.id,
-                                    date: match.date,
-                                    teammateName,
-                                    opponentNames,
-                                    scoreText: hasScore ? `${myScore} : ${oppScore}` : '스코어 미기록',
-                                    resultText,
-                                  };
-                                })
-                            : [];
+                          const seasonTotalGames = seasonWins + seasonLosses + seasonDraws;
+                          const seasonWinRate = seasonTotalGames > 0 ? Math.round(((seasonWins + seasonDraws * 0.5) / seasonTotalGames) * 100) : 0;
+                          const seasonPointMetrics = getMatchPointMetrics(userIdSafe, doublesMatches, selectedSeasonKey);
+                          const seasonAttendanceDates = schedules
+                            .filter((sch) => {
+                              const seasonCode = sch.seasonCode || inferSeasonCodeFromDate(sch.date);
+                              return !!user && includesUserId(sch.participants, user.id) && seasonCode === selectedSeasonKey;
+                            })
+                            .map((sch) => sch.date)
+                            .sort((a, b) => b.localeCompare(a));
+                          const seasonMatchRecords = doublesMatches
+                            .filter((match) => {
+                              const seasonCode = inferSeasonCodeFromDate(match.date);
+                              return !!user && (includesUserId(match.teamA, user.id) || includesUserId(match.teamB, user.id)) && seasonCode === selectedSeasonKey;
+                            })
+                            .sort((a, b) => b.date.localeCompare(a.date))
+                            .map((match) => {
+                              const teamAIds = safeIdList(match.teamA);
+                              const teamBIds = safeIdList(match.teamB);
+                              const userOnTeamA = user ? teamAIds.includes(user.id) : false;
+                              const teammateId = userOnTeamA && user
+                                ? teamAIds.find((id: string) => id !== user.id)
+                                : user
+                                ? teamBIds.find((id: string) => id !== user.id)
+                                : undefined;
+                              const opponentIds = userOnTeamA && user ? teamBIds : teamAIds;
+                              const teammateName = teammateId ? getUserFromStore(teammateId as string)?.name ?? '알 수 없음' : '단식';
+                              const opponentNames = opponentIds
+                                .map((id: string) => getUserFromStore(id)?.name ?? '알 수 없음')
+                                .join(', ');
+                              const hasScore = typeof match.scoreA === 'number' && typeof match.scoreB === 'number';
+                              const myScore = hasScore ? (userOnTeamA ? match.scoreA : match.scoreB) : null;
+                              const oppScore = hasScore ? (userOnTeamA ? match.scoreB : match.scoreA) : null;
+                              let resultText = '기록 없음';
+                              if (match.result === 'draw') {
+                                resultText = '무승부';
+                              } else if (match.result === 'teamA' || match.result === 'teamB') {
+                                const won = (match.result === 'teamA' && userOnTeamA) || (match.result === 'teamB' && !userOnTeamA);
+                                resultText = won ? '승' : '패';
+                              }
+                              return {
+                                id: match.id,
+                                date: match.date,
+                                teammateName,
+                                opponentNames,
+                                scoreText: hasScore ? `${myScore} : ${oppScore}` : '스코어 미기록',
+                                resultText,
+                              };
+                            });
                           content = (
                             <>
                               <div className="mb-6">
@@ -485,6 +444,14 @@ export function ProfilePage() {
                                   <div>
                                     <div className="text-xs text-gray-500 mb-1">승률</div>
                                     <div className="text-lg font-bold">{seasonWinRate}%</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-gray-500 mb-1">득실차 (GD)</div>
+                                    <div className="text-lg font-bold">{seasonPointMetrics.gameDifference > 0 ? `+${seasonPointMetrics.gameDifference}` : seasonPointMetrics.gameDifference}</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-gray-500 mb-1">게임 승률 (GWP)</div>
+                                    <div className="text-lg font-bold">{seasonPointMetrics.gameWinRate.toFixed(1)}%</div>
                                   </div>
                                   <div>
                                     <div className="text-xs text-gray-500 mb-1">출석</div>
@@ -600,7 +567,7 @@ export function ProfilePage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="grid grid-cols-4 gap-4 text-center">
                 <div>
                   <p className="text-2xl font-bold" style={{ color: '#030213' }}>
                     {seasonWins}
@@ -614,8 +581,14 @@ export function ProfilePage() {
                   <p className="text-sm text-gray-600 mt-1">패</p>
                 </div>
                 <div>
+                  <p className="text-2xl font-bold" style={{ color: '#030213' }}>
+                    {seasonDraws}
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">무</p>
+                </div>
+                <div>
                   <p className="text-2xl font-bold">
-                    {seasonWins + seasonLosses}
+                    {seasonWins + seasonLosses + seasonDraws}
                   </p>
                   <p className="text-sm text-gray-600 mt-1">총 경기</p>
                 </div>
@@ -627,6 +600,16 @@ export function ProfilePage() {
                   <span className="text-lg font-bold">{seasonWinRate}%</span>
                 </div>
                 <Progress value={seasonWinRate} className="h-3 bg-[#FFE8EE] [&>[data-slot=progress-indicator]]:bg-[#FFC1CC]" />
+                <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+                  <div className="rounded-lg border border-gray-200 px-3 py-3">
+                    <div className="text-gray-500 mb-1">득실차 (GD)</div>
+                    <div className="text-lg font-bold">{seasonPointMetrics.gameDifference > 0 ? `+${seasonPointMetrics.gameDifference}` : seasonPointMetrics.gameDifference}</div>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 px-3 py-3">
+                    <div className="text-gray-500 mb-1">게임 승률 (GWP)</div>
+                    <div className="text-lg font-bold">{seasonPointMetrics.gameWinRate.toFixed(1)}%</div>
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -647,6 +630,9 @@ export function ProfilePage() {
             <div className="h-full flex flex-col bg-white px-6 pt-8 pb-6">
               <DialogHeader>
                 <DialogTitle className="text-2xl">출석 상세 내역</DialogTitle>
+                <DialogDescription className="sr-only">
+                  이번 시즌 출석 날짜 목록을 확인하는 상세 팝업입니다.
+                </DialogDescription>
               </DialogHeader>
               <div className="flex-1 min-h-0 overflow-y-auto space-y-2 mt-6">
                 {attendanceDatesToShow.length > 0 ? (
@@ -675,6 +661,9 @@ export function ProfilePage() {
             <div className="h-full flex flex-col bg-white px-6 pt-8 pb-6">
               <DialogHeader>
                 <DialogTitle className="text-2xl">경기 상세 기록</DialogTitle>
+                <DialogDescription className="sr-only">
+                  이번 시즌 경기 기록과 파트너 통계, 승률 및 점수 지표 설명을 확인하는 상세 팝업입니다.
+                </DialogDescription>
               </DialogHeader>
               <div className="flex-1 min-h-0 overflow-y-auto space-y-4 mt-6">
                 <div className="text-sm text-gray-700">
@@ -717,6 +706,12 @@ export function ProfilePage() {
                 ) : (
                   <p className="text-sm text-gray-500">경기 기록이 없습니다.</p>
                 )}
+
+                <div className="rounded-md border border-gray-200 bg-[#FAFAFA] px-4 py-4 text-sm text-gray-500 space-y-2">
+                  <p>일반 승률: 승 + 무의 절반을 반영한 승률입니다. 현재는 `(승 + 0.5 x 무) / 총 경기` 기준으로 계산합니다.</p>
+                  <p>득실차 (GD): 내가 딴 총 점수에서 상대에게 내준 총 점수를 뺀 값입니다. 높을수록 경기 내용이 좋았다는 뜻입니다.</p>
+                  <p>게임 승률 (GWP): 전체 플레이 점수 중 내가 딴 점수의 비율입니다. 경기 수가 다른 멤버끼리 비교할 때 보정 지표로 보기 좋습니다.</p>
+                </div>
               </div>
             </div>
           </DialogContent>

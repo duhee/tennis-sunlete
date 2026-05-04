@@ -12,13 +12,14 @@ import {
   TableHeader,
   TableRow,
 } from '../ui/table.js';
-import { getAttendanceRate, getTotalStats, getWinRate, seasonCodeToLabel, type User as UserType, type WeeklyMatchSchedule } from '../../data/mockData.js';
+import { getAttendanceRate, getMatchPointMetrics, getTotalStats, getWinRate, seasonCodeToLabel, type DoublesMatch, type User as UserType, type WeeklyMatchSchedule } from '../../data/mockData.js';
 import { getScheduleSeasonCode } from './scheduleUtils.js';
 
 interface MemberAttendancePanelProps {
   memberUsers: UserType[];
   allSeasons: string[];
   schedules: WeeklyMatchSchedule[];
+  doublesMatches: DoublesMatch[];
   selectedAttendanceSeasonFilter: string;
   onChangeAttendanceSeasonFilter: (seasonCode: string) => void;
   isMobilePreview: boolean;
@@ -28,11 +29,13 @@ export function MemberAttendancePanel({
   memberUsers,
   allSeasons,
   schedules,
+  doublesMatches,
   selectedAttendanceSeasonFilter,
   onChangeAttendanceSeasonFilter,
   isMobilePreview,
 }: MemberAttendancePanelProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const formatSigned = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 
   const computeAttended = (userId: string, seasonCode?: string): number =>
     schedules.filter(s => {
@@ -100,13 +103,21 @@ export function MemberAttendancePanel({
               let winRate = getWinRate(user);
               if (selectedAttendanceSeasonFilter) {
                 const stat = (user.seasonStats ?? []).find((s: any) => s.seasonCode === selectedAttendanceSeasonFilter);
-                totals = stat ? { ...totals, ...stat } : totals;
-                winRate = stat ? Math.round((stat.wins / ((stat.wins + stat.losses) || 1)) * 100) : winRate;
+                if (stat) {
+                  totals = {
+                    ...totals,
+                    ...stat,
+                    draws: stat.draws ?? 0,
+                  };
+                }
+                winRate = stat ? Math.round((((stat.wins ?? 0) + (stat.draws ?? 0) * 0.5) / (((stat.wins ?? 0) + (stat.losses ?? 0) + (stat.draws ?? 0)) || 1)) * 100) : winRate;
               }
               const dynamicAttended = computeAttended(user.id, selectedAttendanceSeasonFilter || undefined);
-              totals = { ...totals, attended_sessions: dynamicAttended };
+              const pointMetrics = getMatchPointMetrics(user.id, doublesMatches, selectedAttendanceSeasonFilter || undefined);
+              totals = { ...totals, attended_sessions: dynamicAttended, draws: totals.draws ?? 0 };
               attendanceRate = Math.round((dynamicAttended / (totals.total_sessions || 1)) * 100);
               const isLowAttendance = attendanceRate < 60;
+              const totalGames = (totals.wins ?? 0) + (totals.losses ?? 0) + (totals.draws ?? 0);
               return (
                 <div
                   key={user.id}
@@ -118,7 +129,7 @@ export function MemberAttendancePanel({
                       <p className="text-sm font-semibold text-[#030213]">
                         {index + 1}. <Link to={`/profile/${user.id}`} className="hover:underline">{user.name}</Link>
                       </p>
-                      <p className="text-xs text-gray-500">총 경기 {totals.total_sessions} · 출석 {totals.attended_sessions}</p>
+                      <p className="text-xs text-gray-500">출석 {totals.attended_sessions}</p>
                     </div>
                     {isLowAttendance ? (
                       <Badge style={{ backgroundColor: '#FF4D4D', color: 'white' }}>우선순위</Badge>
@@ -132,7 +143,11 @@ export function MemberAttendancePanel({
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">전적</span>
-                    <span className="font-medium">{totals.wins}승 {totals.losses}패 · 승률 {winRate}%</span>
+                    <span className="font-medium">{totalGames}전 {totals.wins}승 {totals.losses}패 {totals.draws ?? 0}무 · 승률 {winRate}%</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">점수지표</span>
+                    <span className="font-medium">GD {formatSigned(pointMetrics.gameDifference)} · GWP {pointMetrics.gameWinRate.toFixed(1)}%</span>
                   </div>
                 </div>
               );
@@ -145,11 +160,11 @@ export function MemberAttendancePanel({
                 <TableRow>
                   <TableHead>순위</TableHead>
                   <TableHead>이름</TableHead>
-                  <TableHead>총 경기</TableHead>
                   <TableHead>출석</TableHead>
                   <TableHead>출석률</TableHead>
                   <TableHead>전적</TableHead>
                   <TableHead>승률</TableHead>
+                  <TableHead>점수지표</TableHead>
                   <TableHead>상태</TableHead>
                 </TableRow>
               </TableHeader>
@@ -160,13 +175,21 @@ export function MemberAttendancePanel({
                   let winRate = getWinRate(user);
                   if (selectedAttendanceSeasonFilter) {
                     const stat = (user.seasonStats ?? []).find((s: any) => s.seasonCode === selectedAttendanceSeasonFilter);
-                    totals = stat ? { ...totals, ...stat } : totals;
-                    winRate = stat ? Math.round((stat.wins / ((stat.wins + stat.losses) || 1)) * 100) : winRate;
+                    if (stat) {
+                      totals = {
+                        ...totals,
+                        ...stat,
+                        draws: stat.draws ?? 0,
+                      };
+                    }
+                    winRate = stat ? Math.round((((stat.wins ?? 0) + (stat.draws ?? 0) * 0.5) / (((stat.wins ?? 0) + (stat.losses ?? 0) + (stat.draws ?? 0)) || 1)) * 100) : winRate;
                   }
                   const dynamicAttended = computeAttended(user.id, selectedAttendanceSeasonFilter || undefined);
-                  totals = { ...totals, attended_sessions: dynamicAttended };
+                  const pointMetrics = getMatchPointMetrics(user.id, doublesMatches, selectedAttendanceSeasonFilter || undefined);
+                  totals = { ...totals, attended_sessions: dynamicAttended, draws: totals.draws ?? 0 };
                   attendanceRate = Math.round((dynamicAttended / (totals.total_sessions || 1)) * 100);
                   const isLowAttendance = attendanceRate < 60;
+                  const totalGames = (totals.wins ?? 0) + (totals.losses ?? 0) + (totals.draws ?? 0);
                   return (
                     <TableRow key={user.id} style={isLowAttendance ? { backgroundColor: '#FFF5F7' } : {}}>
                       <TableCell>{index + 1}</TableCell>
@@ -175,7 +198,7 @@ export function MemberAttendancePanel({
                           {user.name}
                         </Link>
                       </TableCell>
-                      <TableCell>{totals.total_sessions}</TableCell>
+                      {/* <TableCell>{totals.total_sessions}</TableCell> */}
                       <TableCell>{totals.attended_sessions}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -184,9 +207,15 @@ export function MemberAttendancePanel({
                         </div>
                       </TableCell>
                       <TableCell>
-                        {totals.wins}승 {totals.losses}패
+                        {totalGames}전 {totals.wins}승 {totals.losses}패 {totals.draws ?? 0}무
                       </TableCell>
                       <TableCell>{winRate}%</TableCell>
+                      <TableCell>
+                        <div className="text-xs leading-5">
+                          <div>GD {formatSigned(pointMetrics.gameDifference)}</div>
+                          <div>GWP {pointMetrics.gameWinRate.toFixed(1)}%</div>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         {isLowAttendance ? (
                           <Badge style={{ backgroundColor: '#FF4D4D', color: 'white' }}>우선순위</Badge>

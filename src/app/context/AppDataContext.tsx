@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   getAttendanceRate,
@@ -71,35 +72,86 @@ function inferSeasonCodeFromDate(date: string): string | undefined {
   return `${prevYy}S4`;
 }
 
-function incrementSeasonStats(
-  stats: SeasonStats[] | undefined,
-  seasonCode: string,
-  outcome: 'win' | 'loss' | 'draw'
-): SeasonStats[] {
-  const next = [...(stats || [])];
-  const idx = next.findIndex(item => item.seasonCode === seasonCode);
+function normalizeSeasonStats(stats: SeasonStats[] | undefined): SeasonStats[] {
+  return (stats ?? []).map(stat => ({
+    ...stat,
+    draws: stat.draws ?? 0,
+  }));
+}
 
-  if (idx === -1) {
-    next.push({
-      seasonCode,
-      total_sessions: 1,
-      attended_sessions: 1,
-      wins: outcome === 'win' ? 1 : 0,
-      losses: outcome === 'loss' ? 1 : 0,
-    });
-    return next;
-  }
+function recalculateUsersFromMatchResults(users: User[], doublesMatches: DoublesMatch[]): User[] {
+  const statsByUserId = new Map<string, Map<string, { wins: number; losses: number; draws: number }>>();
 
-  const current = next[idx];
-  next[idx] = {
-    ...current,
-    total_sessions: current.total_sessions + 1,
-    attended_sessions: current.attended_sessions + 1,
-    wins: current.wins + (outcome === 'win' ? 1 : 0),
-    losses: current.losses + (outcome === 'loss' ? 1 : 0),
+  const ensureUserSeasonStats = (userId: string, seasonCode: string) => {
+    let userStats = statsByUserId.get(userId);
+    if (!userStats) {
+      userStats = new Map<string, { wins: number; losses: number; draws: number }>();
+      statsByUserId.set(userId, userStats);
+    }
+
+    let seasonStats = userStats.get(seasonCode);
+    if (!seasonStats) {
+      seasonStats = { wins: 0, losses: 0, draws: 0 };
+      userStats.set(seasonCode, seasonStats);
+    }
+
+    return seasonStats;
   };
 
-  return next;
+  doublesMatches.forEach(match => {
+    if (typeof match.scoreA !== 'number' || typeof match.scoreB !== 'number') {
+      return;
+    }
+
+    const seasonCode = inferSeasonCodeFromDate(match.date);
+    if (!seasonCode) {
+      return;
+    }
+
+    if (match.scoreA === match.scoreB) {
+      [...match.teamA, ...match.teamB].forEach(userId => {
+        ensureUserSeasonStats(userId, seasonCode).draws += 1;
+      });
+      return;
+    }
+
+    const winningTeam = match.scoreA > match.scoreB ? match.teamA : match.teamB;
+    const losingTeam = match.scoreA > match.scoreB ? match.teamB : match.teamA;
+
+    winningTeam.forEach(userId => {
+      ensureUserSeasonStats(userId, seasonCode).wins += 1;
+    });
+
+    losingTeam.forEach(userId => {
+      ensureUserSeasonStats(userId, seasonCode).losses += 1;
+    });
+  });
+
+  return users.map(user => {
+    const existingStats = normalizeSeasonStats(user.seasonStats);
+    const existingBySeason = new Map(existingStats.map(stat => [stat.seasonCode, stat]));
+    const computedBySeason = statsByUserId.get(user.id) ?? new Map<string, { wins: number; losses: number; draws: number }>();
+    const seasonCodes = Array.from(new Set([...existingBySeason.keys(), ...computedBySeason.keys()]));
+
+    const seasonStats = seasonCodes.map(seasonCode => {
+      const existing = existingBySeason.get(seasonCode);
+      const computed = computedBySeason.get(seasonCode);
+
+      return {
+        seasonCode,
+        total_sessions: existing?.total_sessions ?? 0,
+        attended_sessions: existing?.attended_sessions ?? 0,
+        wins: computed?.wins ?? 0,
+        losses: computed?.losses ?? 0,
+        draws: computed?.draws ?? 0,
+      };
+    });
+
+    return {
+      ...user,
+      seasonStats,
+    };
+  });
 }
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
@@ -130,7 +182,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         if (!isMounted) return;
 
         if (serverData) {
-          setData(serverData);
+          setData({
+            ...serverData,
+            users: recalculateUsersFromMatchResults(serverData.users, serverData.doublesMatches),
+          });
         } else {
           await saveAppData(loadInitialData());
         }
@@ -149,6 +204,35 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       isMounted = false;
     };
   }, []);
+
+  // attendance_requests 변경 시 attended_sessions 자동 재계산
+  useEffect(() => {
+    if (!hydrated) return;
+
+    setData((prev: PersistedData) => {
+      const attendanceMap: Record<string, Record<string, number>> = {};
+      prev.schedules.forEach((schedule: WeeklyMatchSchedule) => {
+        const seasonCode: string = schedule.seasonCode || inferSeasonCodeFromDate(schedule.date) || '';
+        schedule.attendanceRequests.forEach((req: { userId: string; status: string }) => {
+          if (req.status === 'attend') {
+            if (!attendanceMap[req.userId]) attendanceMap[req.userId] = {};
+            attendanceMap[req.userId][seasonCode] = (attendanceMap[req.userId][seasonCode] || 0) + 1;
+          }
+        });
+      });
+      const updatedUsers = prev.users.map((user: User) => {
+        if (!user.seasonStats) return user;
+        const updatedStats = user.seasonStats.map((stat: SeasonStats) => {
+          const attended = attendanceMap[user.id]?.[stat.seasonCode ?? ''] || 0;
+          return { ...stat, attended_sessions: attended };
+        });
+        return { ...user, seasonStats: updatedStats };
+      });
+      const next = { ...prev, users: updatedUsers };
+      enqueueSave(next);
+      return next;
+    });
+  }, [data.schedules, hydrated]);
 
   const commitData = (updater: (prev: PersistedData) => PersistedData) => {
     setData((prev: PersistedData) => {
@@ -317,37 +401,22 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const targetMatch = prev.doublesMatches.find(match => match.id === matchId);
       if (!targetMatch) return prev;
 
-      const result = scoreA === scoreB ? 'draw' : scoreA > scoreB ? 'teamA' : 'teamB';
-      const seasonCode = inferSeasonCodeFromDate(targetMatch.date);
+      const result: DoublesMatch['result'] = scoreA === scoreB ? 'draw' : scoreA > scoreB ? 'teamA' : 'teamB';
+      const updatedMatches = prev.doublesMatches.map(match =>
+        match.id === matchId
+          ? {
+              ...match,
+              scoreA,
+              scoreB,
+              result,
+            }
+          : match
+      );
 
       return {
         ...prev,
-        doublesMatches: prev.doublesMatches.map(match =>
-          match.id === matchId
-            ? {
-                ...match,
-                scoreA,
-                scoreB,
-                result,
-              }
-            : match
-        ),
-        users: prev.users.map(user => {
-          const userOnTeamA = targetMatch.teamA.includes(user.id);
-          const userOnTeamB = targetMatch.teamB.includes(user.id);
-          const played = userOnTeamA || userOnTeamB;
-
-          if (!played || !seasonCode) {
-            return user;
-          }
-
-          const userWon = (result === 'teamA' && userOnTeamA) || (result === 'teamB' && userOnTeamB);
-          const outcome: 'win' | 'loss' | 'draw' = result === 'draw' ? 'draw' : userWon ? 'win' : 'loss';
-          return {
-            ...user,
-            seasonStats: incrementSeasonStats(user.seasonStats, seasonCode, outcome),
-          };
-        }),
+        doublesMatches: updatedMatches,
+        users: recalculateUsersFromMatchResults(prev.users, updatedMatches),
       };
     });
   };
@@ -365,6 +434,32 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const recalculateAllAttendedSessions = React.useCallback((): void => {
+    setData((prev: PersistedData) => {
+      const attendanceMap: Record<string, Record<string, number>> = {};
+      prev.schedules.forEach((schedule: WeeklyMatchSchedule) => {
+        const seasonCode: string = schedule.seasonCode || inferSeasonCodeFromDate(schedule.date) || '';
+        schedule.attendanceRequests.forEach((req: { userId: string; status: string }) => {
+          if (req.status === 'attend') {
+            if (!attendanceMap[req.userId]) attendanceMap[req.userId] = {};
+            attendanceMap[req.userId][seasonCode] = (attendanceMap[req.userId][seasonCode] || 0) + 1;
+          }
+        });
+      });
+      const updatedUsers = prev.users.map((user: User) => {
+        if (!user.seasonStats) return user;
+        const updatedStats = user.seasonStats.map((stat: SeasonStats) => {
+          const attended = attendanceMap[user.id]?.[stat.seasonCode ?? ''] || 0;
+          return { ...stat, attended_sessions: attended };
+        });
+        return { ...user, seasonStats: updatedStats };
+      });
+      const next = { ...prev, users: updatedUsers };
+      enqueueSave(next);
+      return next;
+    });
+  }, [setData, enqueueSave]);
+
   const value = useMemo<AppDataContextType>(
     () => ({
       users: data.users,
@@ -380,6 +475,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       removeGuestUser,
       updateUserActiveSeasons,
       updateUserSeasonStats,
+      recalculateAllAttendedSessions,
       getAttendanceRecordsForSchedule,
       confirmBracketForSchedule,
       recordMatchScore,

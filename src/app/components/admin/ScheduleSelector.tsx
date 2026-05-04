@@ -6,6 +6,10 @@ import { getScheduleStatus, seasonCodeToLabel } from '../../data/mockData.js';
 import { useAppData } from '../../context/AppDataContext.js';
 import { toast } from 'sonner';
 import type { ScheduleSelectorProps } from './types.js';
+
+export interface ScheduleSelectorWithDoubleClickProps extends ScheduleSelectorProps {
+  onPastScheduleDoubleClick?: (schedule: any) => void;
+}
 import type { User } from '../../data/mockData.js';
 
 export function ScheduleSelector({
@@ -15,7 +19,8 @@ export function ScheduleSelector({
   showClosedPastSchedules,
   onToggleShowClosed,
   isMobilePreview,
-}: ScheduleSelectorProps) {
+  onPastScheduleDoubleClick,
+}: ScheduleSelectorWithDoubleClickProps) {
   const { users } = useAppData();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -181,6 +186,18 @@ export function ScheduleSelector({
               else male++;
             });
 
+            // 경기 타입별 외곽선 컬러 결정 (여복: 연한 레드, 혼복: 연한 옐로, 남복: 연한 블루)
+            let matchTypeBorder = '#e5e7eb'; // 기본 border-gray-200
+            if (schedule.maxParticipants === 6 && female === 6) {
+              matchTypeBorder = 'rgba(255, 0, 0, 0.18)'; // 여복: 아주 옅은 레드
+            } else if (
+              schedule.maxParticipants === 6 &&
+              ((female === 3 && male === 3) || (female === 4 && male === 2) || (female === 2 && male === 4))
+            ) {
+              matchTypeBorder = 'rgba(255, 215, 0, 0.22)'; // 혼복: 아주 옅은 옐로
+            } else if (schedule.maxParticipants === 6 && male === 6) {
+              matchTypeBorder = 'rgba(0, 120, 255, 0.18)'; // 남복: 아주 옅은 블루
+            }
             return (
               <button
                 key={schedule.id}
@@ -188,12 +205,16 @@ export function ScheduleSelector({
                   buttonRefs.current[schedule.id] = el;
                 }}
                 onClick={() => onSelectSchedule(schedule.id)}
+                onDoubleClick={isPast && onPastScheduleDoubleClick ? (e) => {
+                  e.stopPropagation();
+                  onPastScheduleDoubleClick(schedule);
+                } : undefined}
                 className={`flex-shrink-0 snap-start rounded-lg border-2 px-4 py-3 text-center transition-all ${
                   selectedScheduleId === schedule.id
                     ? 'border-[#030213] bg-[#030213] text-white'
                     : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
                 }`}
-                style={{ minWidth: 180 }}
+                style={{ minWidth: 180, borderColor: selectedScheduleId === schedule.id ? undefined : matchTypeBorder }}
               >
                 {/* 일정(날짜) + 시즌 라벨: ? 버튼 클릭 시 토스트 */}
                 <div className="flex items-center justify-center text-base font-bold mb-1">

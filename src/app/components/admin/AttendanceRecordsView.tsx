@@ -107,6 +107,7 @@ export function AttendanceRecordsView({
                           day: '2-digit',
                           hour: '2-digit',
                           minute: '2-digit',
+                          second: '2-digit',
                           hour12: false,
                         })}
                       </p>
@@ -157,11 +158,14 @@ export function AttendanceRecordsView({
                         day: '2-digit',
                         hour: '2-digit',
                         minute: '2-digit',
+                        second: '2-digit',
                         hour12: false,
                       })}
                     </TableCell>
                     <TableCell className="text-center">
-                      {row.placement === 'participant' ? (
+                      {row.isGuest ? (
+                        <Badge variant="outline">게스트</Badge>
+                      ) : row.placement === 'participant' ? (
                         <Badge style={{ backgroundColor: '#E8F5E9', color: '#2E7D32' }}>참석자</Badge>
                       ) : (
                         <Badge style={{ backgroundColor: '#FFF3E0', color: '#E65100' }}>대기자</Badge>

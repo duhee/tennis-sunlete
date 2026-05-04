@@ -139,7 +139,7 @@ export function GuestListPanel({ guestUsers, schedules, onDeleteGuest, isMobileP
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">전적</span>
-                    <span className="font-medium">{guestTotals.wins}승 {guestTotals.losses}패</span>
+                    <span className="font-medium">{guestTotals.wins + guestTotals.losses + guestTotals.draws}전 {guestTotals.wins}승 {guestTotals.losses}패 {guestTotals.draws}무</span>
                   </div>
                   <Button
                     variant="outline"
@@ -189,7 +189,7 @@ export function GuestListPanel({ guestUsers, schedules, onDeleteGuest, isMobileP
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>{guestTotals.wins}승 {guestTotals.losses}패</TableCell>
+                      <TableCell>{guestTotals.wins + guestTotals.losses + guestTotals.draws}전 {guestTotals.wins}승 {guestTotals.losses}패 {guestTotals.draws}무</TableCell>
                       <TableCell className="text-right flex gap-2 justify-end">
                         <Button variant="outline" size="sm" onClick={() => onDeleteGuest(guest.id)}>
                           삭제
