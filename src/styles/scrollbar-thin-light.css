@@ -1,0 +1,16 @@
+/* Thin, light-colored scrollbar utility */
+.scrollbar-thin-light {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #e5e7eb #f9fafb; /* thumb, track */
+}
+.scrollbar-thin-light::-webkit-scrollbar {
+  height: 6px;
+  background: #f9fafb;
+}
+.scrollbar-thin-light::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 4px;
+}
+.scrollbar-thin-light::-webkit-scrollbar-thumb:hover {
+  background: #d1d5db;
+}

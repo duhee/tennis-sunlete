@@ -41,14 +41,8 @@ export function DrawGenerator({
     setIsManualMode(false);
   }, [selectedSchedule?.id]);
 
-  const validationItems = [
-    { label: '일정 선택', passed: validation.scheduleSelected },
-    { label: '일정 상태 확인 (대기중 또는 과거 일정)', passed: validation.statusCondition },
-    { label: '참석자 수 6명 이상', passed: validation.participantCount },
-  ];
-
   const participantUsers = (selectedSchedule?.participants ?? [])
-    .map(id => getUserById(id))
+    .map((id: string) => getUserById(id))
     .filter(Boolean) as UserType[];
 
   const updateManualSlot = (
@@ -107,7 +101,6 @@ export function DrawGenerator({
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Trophy className="w-5 h-5" style={{ color: '#030213' }} />
             대진표 생성
           </CardTitle>
         </CardHeader>
@@ -148,23 +141,6 @@ export function DrawGenerator({
               </div>
             </div>
           )}
-          <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <p className="mb-2 text-xs font-semibold text-gray-600">대진 생성 조건 검증</p>
-            <div className="space-y-1.5">
-              {validationItems.map(item => (
-                <div key={item.label} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-700">{item.label}</span>
-                  <span className={item.passed ? 'text-green-600 font-semibold' : 'text-red-500 font-semibold'}>
-                    {item.passed ? '통과' : '미충족'}
-                  </span>
-                </div>
-              ))}
-            </div>
-            {validation.statusMessage && (
-              <p className="mt-2 text-xs text-red-500">{validation.statusMessage}</p>
-            )}
-          </div>
-
           {selectedSchedule ? (
             <div className="space-y-3">
               <div className={`flex ${isMobilePreview ? 'flex-col' : 'flex-row'} gap-2`}>

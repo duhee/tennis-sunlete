@@ -233,7 +233,16 @@ export function UserDashboard() {
           {confirmedDate && (
             <div className="mb-6 rounded-xl border bg-white p-4">
               <div className="mb-4">
-                <p className="text-base font-bold text-[#030213] mb-1">26년 4월 12일(일) 10-13시</p>
+                <p className="text-base font-bold text-[#030213] mb-1">
+                  {confirmedDate
+                    ? new Date(confirmedDate).toLocaleDateString('ko-KR', {
+                        year: '2-digit',
+                        month: 'long',
+                        day: 'numeric',
+                        weekday: 'short',
+                      }) + ' 10-13시'
+                    : ''}
+                </p>
                 <p className="text-base font-bold text-[#030213]">필킨스 실내 2층</p>
               </div>
               <div className="space-y-1 text-xs text-gray-600">
@@ -246,7 +255,7 @@ export function UserDashboard() {
 
           <div className="space-y-3">
             {confirmedMatches.length === 0 && (
-              <Card style={{ backgroundColor: '#F8F9FA' }}>
+              <Card className="mb-6" style={{ backgroundColor: '#F8F9FA' }}>
                 <CardContent className="py-8 text-center">
                   <p className="text-sm font-medium text-gray-700">아직 확정된 대진표가 없습니다</p>
                   <p className="text-xs text-gray-500 mt-2">관리 페이지에서 대진표가 확정되면 여기서 바로 확인할 수 있습니다.</p>
@@ -263,7 +272,7 @@ export function UserDashboard() {
               return (
                 <Card
                   key={match.id}
-                  className="border"
+                  className="border mb-6"
                   style={userInMatch ? { borderColor: '#FFC1CC', backgroundColor: '#FFF8FA' } : { borderColor: '#E5E7EB' }}
                 >
                   <CardHeader className="pb-3">
@@ -422,7 +431,7 @@ export function UserDashboard() {
               return (
                 <Card
                   key={schedule.id}
-                  className={myStatus === 'none' && isSeasonMember && !isDrawWaiting ? 'border-[#FFC1CC] animate-[pulse_3s_ease-in-out_infinite]' : ''}
+                  className={(myStatus === 'none' && isSeasonMember && !isDrawWaiting ? 'border-[#FFC1CC] animate-[pulse_3s_ease-in-out_infinite] ' : '') + 'mb-6'}
                   style={
                     myStatus === 'none' && isSeasonMember && !isDrawWaiting
                       ? {

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
 import { Button } from '../ui/button.js';
-import { UserRoundCog } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ReplacementManagerProps } from './types.js';
 
@@ -60,7 +59,6 @@ export function ReplacementManager({
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <UserRoundCog className="w-5 h-5" style={{ color: '#030213' }} />
             대참자 관리
           </CardTitle>
         </CardHeader>
@@ -75,7 +73,6 @@ export function ReplacementManager({
     <Card className="mb-6">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <UserRoundCog className="w-5 h-5" style={{ color: '#030213' }} />
           대참자 관리
         </CardTitle>
       </CardHeader>

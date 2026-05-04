@@ -42,16 +42,14 @@ export function MemberAttendancePanel({
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
           <CardTitle>회원 출석 관리</CardTitle>
-          <Button variant="outline" size="sm" onClick={() => setIsExpanded(prev => !prev)}>
+          <Button variant="ghost" size="sm" onClick={() => setIsExpanded(prev => !prev)}>
             {isExpanded ? (
               <>
                 <ChevronDown className="w-4 h-4 mr-1" />
-                접기
               </>
             ) : (
               <>
                 <ChevronRight className="w-4 h-4 mr-1" />
-                펼치기
               </>
             )}
           </Button>

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Card, CardContent } from '../ui/card.js';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
 import { Badge } from '../ui/badge.js';
 import { getScheduleDateKey, toDateKey } from './scheduleUtils.js';
 import { getScheduleStatus, seasonCodeToLabel } from '../../data/mockData.js';
@@ -57,10 +57,34 @@ export function ScheduleSelector({
     container.scrollTo({ left: Math.max(0, nextLeft), behavior: 'smooth' });
   }, [selectedScheduleId, schedulesForPicker]);
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'open':
+  // 3주치만 '참석 접수중', 그 이전은 '접수 대기'
+  const isAttendanceOpen = (schedule: any) => {
+    if (!schedule.attendanceDeadline) return false;
+    const now = new Date();
+    const deadline = new Date(schedule.attendanceDeadline);
+    return now >= deadline;
+  };
+
+  // 3주치만 '참석 접수중'으로 표시
+  const isWithinNext3Weeks = (schedule: any) => {
+    if (!schedule.date) return false;
+    const now = new Date();
+    const matchDate = new Date(schedule.date + 'T00:00:00+09:00');
+    const diff = (matchDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 7);
+    return diff >= 0 && diff < 3;
+  };
+
+  const getStatusLabel = (status: string, schedule: any) => {
+    if (status === 'open') {
+      if (isAttendanceOpen(schedule)) {
         return '참석 접수중';
+      } else if (isWithinNext3Weeks(schedule)) {
+        return '참석 접수중';
+      } else {
+        return '접수 대기';
+      }
+    }
+    switch (status) {
       case 'draw_waiting':
         return '대진표 생성 대기중';
       case 'closed':
@@ -70,10 +94,15 @@ export function ScheduleSelector({
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'open':
+  const getStatusColor = (status: string, schedule: any) => {
+    if (status === 'open') {
+      if (isAttendanceOpen(schedule) || isWithinNext3Weeks(schedule)) {
         return { backgroundColor: '#E8F5E9', color: '#2E7D32' };
+      } else {
+        return { backgroundColor: '#F5F5F5', color: '#999' };
+      }
+    }
+    switch (status) {
       case 'draw_waiting':
         return { backgroundColor: '#FFF3E0', color: '#E65100' };
       case 'closed':
@@ -85,21 +114,26 @@ export function ScheduleSelector({
 
   return (
     <Card className="mb-6">
-      <CardContent className="pt-6">
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-sm font-medium">경기 일정 선택</p>
-          {pastClosedSchedules.length > 0 && (
-            <button
-              onClick={() => onToggleShowClosed(!showClosedPastSchedules)}
-              className="text-xs text-gray-500 hover:underline"
-            >
-              {showClosedPastSchedules ? '과거 일정 숨기기' : `과거 일정 보기 (${pastClosedSchedules.length})`}
-            </button>
-          )}
-        </div>
+      <CardHeader>
+        <CardTitle>
+          <div className="flex items-center justify-between w-full">
+            <span className="flex-1 flex items-center">경기 일정 선택</span>
+            {pastClosedSchedules.length > 0 && (
+              <button
+                onClick={() => onToggleShowClosed(!showClosedPastSchedules)}
+                className="text-xs text-gray-500 hover:underline flex items-center"
+                style={{ minHeight: '2rem' }}
+              >
+                {showClosedPastSchedules ? '과거 일정 숨기기' : `과거 일정 보기 (${pastClosedSchedules.length})`}
+              </button>
+            )}
+          </div>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
         <div
           ref={scrollRef}
-          className="overflow-x-auto pb-2 -mx-6 px-6 flex gap-2 snap-x snap-mandatory scrollbar-hide"
+          className="overflow-x-auto pb-2 px-6 flex gap-4 snap-x snap-mandatory scrollbar-thin-light"
           style={{
             scrollBehavior: 'smooth',
             WebkitOverflowScrolling: 'touch',
@@ -146,10 +180,10 @@ export function ScheduleSelector({
                     style={
                       selectedScheduleId === schedule.id
                         ? { backgroundColor: 'rgba(255,255,255,0.2)', borderColor: 'rgba(255,255,255,0.3)', color: 'white' }
-                        : getStatusColor(status)
+                        : getStatusColor(status, schedule)
                     }
                   >
-                    {getStatusLabel(status)}
+                    {getStatusLabel(status, schedule)}
                   </Badge>
                 </div>
                 {isPast && (

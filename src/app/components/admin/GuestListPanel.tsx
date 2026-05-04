@@ -74,16 +74,14 @@ export function GuestListPanel({ guestUsers, schedules, onDeleteGuest, isMobileP
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
           <CardTitle>게스트 목록</CardTitle>
-          <Button variant="outline" size="sm" onClick={() => setIsExpanded(prev => !prev)}>
+          <Button variant="ghost" size="sm" onClick={() => setIsExpanded(prev => !prev)}>
             {isExpanded ? (
               <>
                 <ChevronDown className="w-4 h-4 mr-1" />
-                접기
               </>
             ) : (
               <>
                 <ChevronRight className="w-4 h-4 mr-1" />
-                펼치기
               </>
             )}
           </Button>
@@ -104,7 +102,6 @@ export function GuestListPanel({ guestUsers, schedules, onDeleteGuest, isMobileP
                       <p className="text-sm font-semibold text-[#030213]">{guest.name}</p>
                       <p className="text-xs text-gray-500">{guest.gender === 'F' ? '여성' : '남성'}</p>
                     </div>
-                    <Badge variant="outline">게스트</Badge>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">참석</span>
@@ -144,7 +141,6 @@ export function GuestListPanel({ guestUsers, schedules, onDeleteGuest, isMobileP
                 <TableRow>
                   <TableHead>이름</TableHead>
                   <TableHead>성별</TableHead>
-                  <TableHead>표시</TableHead>
                   <TableHead>시즌 참석</TableHead>
                   <TableHead>전적</TableHead>
                   <TableHead className="text-right">관리</TableHead>
@@ -158,9 +154,6 @@ export function GuestListPanel({ guestUsers, schedules, onDeleteGuest, isMobileP
                     <TableRow key={guest.id}>
                       <TableCell className="font-medium">{guest.name}</TableCell>
                       <TableCell>{guest.gender === 'F' ? '여성' : '남성'}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">게스트</Badge>
-                      </TableCell>
                       <TableCell>
                         <div className="space-y-1">
                           <p className="text-xs text-gray-600">총 {visitSummary.totalVisits}회</p>

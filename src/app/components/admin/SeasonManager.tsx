@@ -71,16 +71,14 @@ export function SeasonManager({
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
           <CardTitle>회원 활동 시즌 설정</CardTitle>
-          <Button variant="outline" size="sm" onClick={() => setIsExpanded(prev => !prev)}>
+          <Button variant="ghost" size="sm" onClick={() => setIsExpanded(prev => !prev)}>
             {isExpanded ? (
               <>
                 <ChevronDown className="w-4 h-4 mr-1" />
-                접기
               </>
             ) : (
               <>
                 <ChevronRight className="w-4 h-4 mr-1" />
-                펼치기
               </>
             )}
           </Button>
@@ -163,16 +161,19 @@ export function SeasonManager({
               <p className="text-xs text-gray-500 mb-2">현재 선택된 멤버 ({selectedSeasonMembers.length}명)</p>
               {selectedSeasonMembers.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {selectedSeasonMembers.map(member => (
-                    <button
-                      key={member.id}
-                      onClick={() => onToggleMember(selectedSeason, member.id)}
-                      className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-2 py-1 text-xs text-[#030213]"
-                    >
-                      {member.name}
-                      <span className="text-gray-400">x</span>
-                    </button>
-                  ))}
+                  {selectedSeasonMembers.map((member, idx) => {
+                    if (!member) return null;
+                    return (
+                      <button
+                        key={member.id ?? idx}
+                        onClick={() => onToggleMember(selectedSeason, member.id)}
+                        className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-2 py-1 text-xs text-[#030213]"
+                      >
+                        {member.name}
+                        <span className="text-gray-400">x</span>
+                      </button>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-gray-400">선택된 멤버가 없습니다.</p>

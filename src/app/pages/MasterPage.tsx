@@ -456,7 +456,6 @@ export function MasterPage() {
           <div className={`${isMobilePreview ? 'space-y-3' : 'flex items-center justify-between gap-4'}`}>
             <div>
             <h1 className={`${isMobilePreview ? 'text-2xl' : 'text-3xl'} font-bold mb-2`}>마스터 페이지</h1>
-              <p className="text-sm text-gray-500">모웹 미리보기에서 운영 흐름을 확인할 수 있습니다.</p>
             </div>
             <div className="inline-flex rounded-xl border border-gray-200 p-1 bg-white self-start">
               <button
@@ -465,7 +464,6 @@ export function MasterPage() {
                 className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors"
                 style={isMobilePreview ? { backgroundColor: '#FFC1CC', color: '#030213' } : { color: '#6B7280' }}
               >
-                <Smartphone className="w-4 h-4" />
                 모웹
               </button>
               <button
@@ -474,46 +472,41 @@ export function MasterPage() {
                 className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors"
                 style={!isMobilePreview ? { backgroundColor: '#FFC1CC', color: '#030213' } : { color: '#6B7280' }}
               >
-                <Monitor className="w-4 h-4" />
                 데스크톱
               </button>
             </div>
           </div>
         </div>
 
-        <div className={`grid ${isMobilePreview ? 'grid-cols-1' : 'md:grid-cols-3'} gap-4 mb-6`}>
-          <div className={isMobilePreview ? '' : 'md:col-span-2'}>
-            <ScheduleSelector
-              schedules={schedules}
-              selectedScheduleId={selectedScheduleId}
-              onSelectSchedule={handleSelectSchedule}
-              showClosedPastSchedules={showClosedPastSchedules}
-              onToggleShowClosed={setShowClosedPastSchedules}
-              isMobilePreview={isMobilePreview}
-            />
-            <DrawGenerator
-              selectedSchedule={selectedSchedule ?? null}
-              generatedBracket={generatedBracket}
-              bracketConfirmed={bracketConfirmed}
-              validation={generationValidation}
-              qualityReport={drawQualityReport}
-              onGenerateDraw={handleGenerateDraw}
-              onApplyManualBracket={handleApplyManualBracket}
-              onConfirmBracket={handleConfirmBracket}
-              getUserById={getUserById}
-              isMobilePreview={isMobilePreview}
-            />
-          </div>
-          <div>
-            <ReplacementManager
-              selectedSchedule={selectedSchedule ?? null}
-              absentUsers={absentUsers}
-              replacementCandidates={replacementCandidates}
-              getUserById={getUserById}
-              onApplyReplacement={handleApplyReplacementFromComponent}
-              isMobilePreview={isMobilePreview}
-            />
-          </div>
+        <div className="mb-6">
+          <ScheduleSelector
+            schedules={schedules}
+            selectedScheduleId={selectedScheduleId}
+            onSelectSchedule={handleSelectSchedule}
+            showClosedPastSchedules={showClosedPastSchedules}
+            onToggleShowClosed={setShowClosedPastSchedules}
+            isMobilePreview={isMobilePreview}
+          />
+          <DrawGenerator
+            selectedSchedule={selectedSchedule ?? null}
+            generatedBracket={generatedBracket}
+            bracketConfirmed={bracketConfirmed}
+            validation={generationValidation}
+            qualityReport={drawQualityReport}
+            onGenerateDraw={handleGenerateDraw}
+            onApplyManualBracket={handleApplyManualBracket}
+            onConfirmBracket={handleConfirmBracket}
+            getUserById={getUserById}
+            isMobilePreview={isMobilePreview}
+          />
+          <ReplacementManager
+            selectedSchedule={selectedSchedule ?? null}
+            absentUsers={absentUsers}
+            replacementCandidates={replacementCandidates}
+            getUserById={getUserById}
+            onApplyReplacement={handleApplyReplacementFromComponent}
+            isMobilePreview={isMobilePreview}
+          />
         </div>
 
         <AttendanceRecordsView

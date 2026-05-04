@@ -9,7 +9,6 @@ import {
   TableHeader,
   TableRow,
 } from '../ui/table.js';
-import { ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import type { AttendanceRecordsViewProps } from './types.js';
 
@@ -26,7 +25,6 @@ export function AttendanceRecordsView({
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <ClipboardList className="w-5 h-5" style={{ color: '#030213' }} />
             참석 기록 조회
             <button
               type="button"
@@ -53,7 +51,6 @@ export function AttendanceRecordsView({
     <Card className="mb-6">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <ClipboardList className="w-5 h-5" style={{ color: '#030213' }} />
           참석 기록 조회
           <button
             type="button"

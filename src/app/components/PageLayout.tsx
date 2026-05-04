@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { useAppData } from '../context/AppDataContext';
+import { useAuth } from '../context/AuthContext.js';
+import { useAppData } from '../context/AppDataContext.js';
 import {
   Calendar,
   User,
@@ -20,7 +20,7 @@ export function PageLayout({ children }: PageLayoutProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const user = users.find(u => u.name === currentUser);
+  const user = users.find((u: any) => u.name === currentUser);
   const userId = user?.id;
 
   const getActiveTab = (): 'bracket' | 'attendance' | 'profile' | 'master' => {
