@@ -10,6 +10,15 @@ import {
 import { getScheduleStatus, seasonCodeToLabel, type User as UserType } from '../data/mockData.js';
 import { toast } from 'sonner';
 import { Toaster } from '../components/ui/sonner.js';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog.js';
 import { useIsMobile } from '../components/ui/use-mobile.js';
 import {
   ScheduleSelector,
@@ -29,12 +38,15 @@ import { getWinRate } from '../data/mockData.js';
 import { supabase } from '../api/supabaseClient.js';
 
 export function MasterPage() {
+    // 게스트 성별 필터 상태
+    const [guestGenderTab, setGuestGenderTab] = useState<'all' | 'M' | 'F'>('F');
   const { isAdmin } = useAuth();
   const {
     users,
     schedules,
     doublesMatches,
     getUserById,
+    findUsersByName,
     addMember,
     applyReplacementByMaster,
     addGuestAndReplace,
@@ -59,6 +71,16 @@ export function MasterPage() {
   const [seasonTotalSessionsDraft, setSeasonTotalSessionsDraft] = useState<Record<string, string>>({});
   const [selectedAttendanceSeasonFilter, setSelectedAttendanceSeasonFilter] = useState<string>('');
   const [showClosedPastSchedules, setShowClosedPastSchedules] = useState<boolean>(false);
+  const [showDuplicateGuestDialog, setShowDuplicateGuestDialog] = useState(false);
+  const [duplicateGuestInfo, setDuplicateGuestInfo] = useState<{
+    name: string;
+    guestGender: 'M' | 'F';
+    existingGuestId: string;
+  } | null>(null);
+  const [pendingGuestReplacement, setPendingGuestReplacement] = useState<{
+    scheduleId: string;
+    absentUserId: string;
+  } | null>(null);
 
   React.useEffect(() => {
     const savedViewMode = window.localStorage.getItem(ADMIN_VIEW_MODE_STORAGE_KEY);
@@ -411,7 +433,27 @@ export function MasterPage() {
       return;
     }
 
-    addGuestAndReplace(selectedSchedule.id, params.absentUserId, params.guestName.trim(), params.guestGender ?? 'F');
+    const targetGuestGender = params.guestGender ?? 'F';
+    const existingGuestsWithName = findUsersByName(params.guestName.trim()).filter(
+      (user: UserType) => (user.isGuest || user.id.startsWith('guest-')) && user.gender === targetGuestGender
+    );
+
+    if (existingGuestsWithName.length > 0) {
+      const existingGuest = existingGuestsWithName[0];
+      setDuplicateGuestInfo({
+        name: params.guestName.trim(),
+        guestGender: targetGuestGender,
+        existingGuestId: existingGuest.id,
+      });
+      setPendingGuestReplacement({
+        scheduleId: selectedSchedule.id,
+        absentUserId: params.absentUserId,
+      });
+      setShowDuplicateGuestDialog(true);
+      return;
+    }
+
+    addGuestAndReplace(selectedSchedule.id, params.absentUserId, params.guestName.trim(), targetGuestGender);
   };
 
   const handleCreateMemberFromComponent = (season: string, name: string, phoneLast4: string) => {
@@ -465,6 +507,57 @@ export function MasterPage() {
     <PageLayout>
       <div className="min-h-screen bg-white">
         <Toaster />
+
+        <AlertDialog
+          open={showDuplicateGuestDialog}
+          onOpenChange={(open) => {
+            setShowDuplicateGuestDialog(open);
+            if (!open) {
+              setDuplicateGuestInfo(null);
+              setPendingGuestReplacement(null);
+            }
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>기존 게스트 확인</AlertDialogTitle>
+              <AlertDialogDescription>
+                "{duplicateGuestInfo?.name}" 이름의 게스트가 이미 있습니다.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="flex justify-end gap-2">
+              <AlertDialogCancel
+                onClick={() => {
+                  if (duplicateGuestInfo && pendingGuestReplacement) {
+                    addGuestAndReplace(
+                      pendingGuestReplacement.scheduleId,
+                      pendingGuestReplacement.absentUserId,
+                      duplicateGuestInfo.name,
+                      duplicateGuestInfo.guestGender
+                    );
+                  }
+                }}
+              >
+                새 사람으로 등록
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (duplicateGuestInfo && pendingGuestReplacement) {
+                    addGuestAndReplace(
+                      pendingGuestReplacement.scheduleId,
+                      pendingGuestReplacement.absentUserId,
+                      duplicateGuestInfo.name,
+                      duplicateGuestInfo.guestGender,
+                      duplicateGuestInfo.existingGuestId
+                    );
+                  }
+                }}
+              >
+                기존 게스트 사용
+              </AlertDialogAction>
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
 
       <div className={`${isMobilePreview ? 'max-w-md' : 'max-w-6xl'} mx-auto ${isMobilePreview ? 'px-4 py-5' : 'p-6'} transition-all duration-200`}>
         <div className="mb-8">
@@ -547,6 +640,8 @@ export function MasterPage() {
           schedules={schedules}
           onDeleteGuest={handleDeleteGuest}
           isMobilePreview={isMobilePreview}
+          genderTab={guestGenderTab}
+          onChangeGenderTab={setGuestGenderTab}
         />
 
         <SeasonManager

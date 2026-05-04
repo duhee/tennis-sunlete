@@ -361,6 +361,32 @@ export const applyReplacement = (
   requestedAt: string = new Date().toISOString(),
   users: User[] = []
 ): WeeklyMatchSchedule => {
+  const absentUser = users.find(u => u.id === absentUserId);
+  
+  // 게스트가 제거/대체되는 경우: attendanceRequests에서 완전히 제거 (불참 표시 안함)
+  if (absentUser?.isGuest) {
+    const withoutGuest = schedule.attendanceRequests.filter(row => row.userId !== absentUserId);
+    
+    if (replacementUserId === 'empty-slot') {
+      // 게스트를 빈자리로 제거
+      return refreshScheduleSnapshot({
+        ...schedule,
+        attendanceRequests: withoutGuest,
+      }, users);
+    } else {
+      // 게스트를 다른 멤버로 대체 (기존 대체자 제거 후 새로운 대체자 추가)
+      const withoutBoth = withoutGuest.filter(row => row.userId !== replacementUserId);
+      return refreshScheduleSnapshot({
+        ...schedule,
+        attendanceRequests: [
+          ...withoutBoth,
+          { userId: replacementUserId, requestedAt, status: 'attend' },
+        ],
+      }, users);
+    }
+  }
+
+  // 정기 멤버의 경우: 기존 로직 (불참 표시)
   const withoutReplacement = schedule.attendanceRequests.filter(row => row.userId !== replacementUserId);
 
   const absentExisting = withoutReplacement.find(row => row.userId === absentUserId);

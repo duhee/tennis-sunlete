@@ -18,6 +18,8 @@ interface GuestListPanelProps {
   schedules: WeeklyMatchSchedule[];
   onDeleteGuest: (guestId: string) => void;
   isMobilePreview: boolean;
+  genderTab?: 'all' | 'M' | 'F';
+  onChangeGenderTab?: (tab: 'all' | 'M' | 'F') => void;
 }
 
 function inferSeasonCodeFromDate(date: string): string {
@@ -66,8 +68,16 @@ function getSeasonDisplayLabel(seasonCode: string): string {
   return label === '알 수 없음' ? seasonCode : label;
 }
 
-export function GuestListPanel({ guestUsers, schedules, onDeleteGuest, isMobilePreview }: GuestListPanelProps) {
+
+export function GuestListPanel({ guestUsers, schedules, onDeleteGuest, isMobilePreview, genderTab = 'all', onChangeGenderTab }: GuestListPanelProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const [hiddenGuestIds, setHiddenGuestIds] = React.useState<string[]>([]);
+
+  // 성별 필터링 + 숨김 필터링
+  const filteredGuests = React.useMemo(() => {
+    let list = genderTab === 'all' ? guestUsers : guestUsers.filter(g => g.gender === genderTab);
+    return list.filter(g => !hiddenGuestIds.includes(g.id));
+  }, [guestUsers, genderTab, hiddenGuestIds]);
 
   return (
     <Card className="mt-6 mb-6">
@@ -75,24 +85,33 @@ export function GuestListPanel({ guestUsers, schedules, onDeleteGuest, isMobileP
         <div className="flex items-center justify-between gap-2">
           <CardTitle>게스트 목록</CardTitle>
           <Button variant="ghost" size="sm" onClick={() => setIsExpanded(prev => !prev)}>
-            {isExpanded ? (
-              <>
-                <ChevronDown className="w-4 h-4 mr-1" />
-              </>
-            ) : (
-              <>
-                <ChevronRight className="w-4 h-4 mr-1" />
-              </>
-            )}
+            {isExpanded ? <><ChevronDown className="w-4 h-4 mr-1" /></> : <><ChevronRight className="w-4 h-4 mr-1" /></>}
           </Button>
         </div>
       </CardHeader>
       {isExpanded && <CardContent>
-        {guestUsers.length === 0 ? (
+        {/* 성별 탭: 펼쳤을 때만 */}
+        {onChangeGenderTab && (
+          <div className="flex gap-2 mb-4">
+            <button
+              className={`px-3 py-1 rounded-full text-sm border transition-colors duration-100 ${genderTab === 'F' ? 'bg-black text-white border-black font-bold' : 'bg-white text-black border-gray-200'}`}
+              onClick={() => onChangeGenderTab('F')}
+            >여성</button>
+            <button
+              className={`px-3 py-1 rounded-full text-sm border transition-colors duration-100 ${genderTab === 'M' ? 'bg-black text-white border-black font-bold' : 'bg-white text-black border-gray-200'}`}
+              onClick={() => onChangeGenderTab('M')}
+            >남성</button>
+            <button
+              className={`px-3 py-1 rounded-full text-sm border transition-colors duration-100 ${genderTab === 'all' ? 'bg-black text-white border-black font-bold' : 'bg-white text-black border-gray-200'}`}
+              onClick={() => onChangeGenderTab('all')}
+            >전체</button>
+          </div>
+        )}
+        {filteredGuests.length === 0 ? (
           <p className="text-sm text-gray-500">등록된 게스트가 없습니다</p>
         ) : isMobilePreview ? (
           <div className="space-y-2">
-            {guestUsers.map(guest => {
+            {filteredGuests.map(guest => {
               const guestTotals = getTotalStats(guest);
               const visitSummary = getGuestVisitSummary(guest.id, schedules);
               return (
@@ -147,7 +166,7 @@ export function GuestListPanel({ guestUsers, schedules, onDeleteGuest, isMobileP
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {guestUsers.map(guest => {
+                {filteredGuests.map(guest => {
                   const guestTotals = getTotalStats(guest);
                   const visitSummary = getGuestVisitSummary(guest.id, schedules);
                   return (
@@ -171,9 +190,12 @@ export function GuestListPanel({ guestUsers, schedules, onDeleteGuest, isMobileP
                         </div>
                       </TableCell>
                       <TableCell>{guestTotals.wins}승 {guestTotals.losses}패</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right flex gap-2 justify-end">
                         <Button variant="outline" size="sm" onClick={() => onDeleteGuest(guest.id)}>
                           삭제
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => setHiddenGuestIds(ids => [...ids, guest.id])}>
+                          숨기기
                         </Button>
                       </TableCell>
                     </TableRow>

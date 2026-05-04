@@ -28,10 +28,11 @@ interface AppDataContextType {
   doublesMatches: DoublesMatch[];
   getUserById: (id: string) => User | undefined;
   getUserByName: (name: string) => User | undefined;
+  findUsersByName: (name: string) => User[];
   addMember: (name: string, phoneLast4: string, options?: { gender?: 'M' | 'F' | 'W'; activeSeasons?: string[] }) => User | null;
   updateAttendanceChoice: (scheduleId: string, userId: string, choice: 'attend' | 'absent' | 'cancel') => void;
   applyReplacementByMaster: (scheduleId: string, absentUserId: string, replacementUserId: string) => void;
-  addGuestAndReplace: (scheduleId: string, absentUserId: string, guestName: string, guestGender: 'M' | 'F') => void;
+  addGuestAndReplace: (scheduleId: string, absentUserId: string, guestName: string, guestGender: 'M' | 'F', existingGuestId?: string) => void;
   removeGuestUser: (guestUserId: string) => { ok: boolean; reason?: string };
   updateUserActiveSeasons: (userId: string, seasons: string[]) => void;
   updateUserSeasonStats: (userId: string, seasonStats: SeasonStats[]) => void;
@@ -159,6 +160,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   const getUserById = (id: string) => data.users.find(user => user.id === id);
   const getUserByName = (name: string) => data.users.find((user: User) => user.name === name);
+  const findUsersByName = (name: string) => data.users.filter((user: User) => user.name === name.trim());
 
   const addMember = (
     name: string,
@@ -210,8 +212,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  const addGuestAndReplace = (scheduleId: string, absentUserId: string, guestName: string, guestGender: 'M' | 'F') => {
-    const guestId = `guest-${Date.now()}`;
+  const addGuestAndReplace = (scheduleId: string, absentUserId: string, guestName: string, guestGender: 'M' | 'F', existingGuestId?: string) => {
+    const guestId = existingGuestId || `guest-${Date.now()}`;
     const guestUser: User = {
       id: guestId,
       name: guestName,
@@ -220,15 +222,19 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       seasonStats: [],
     };
 
-    commitData((prev: PersistedData) => ({
-      ...prev,
-      users: [...prev.users, guestUser],
-      schedules: prev.schedules.map(schedule =>
-        schedule.id === scheduleId
-          ? applyReplacement(schedule, absentUserId, guestId, undefined, [...prev.users, guestUser])
-          : schedule
-      ),
-    }));
+    commitData((prev: PersistedData) => {
+      const usersToCommit = existingGuestId ? prev.users : [...prev.users, guestUser];
+
+      return {
+        ...prev,
+        users: usersToCommit,
+        schedules: prev.schedules.map(schedule =>
+          schedule.id === scheduleId
+            ? applyReplacement(schedule, absentUserId, guestId, undefined, usersToCommit)
+            : schedule
+        ),
+      };
+    });
   };
 
   const removeGuestUser = (guestUserId: string): { ok: boolean; reason?: string } => {
@@ -366,6 +372,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       doublesMatches: data.doublesMatches,
       getUserById,
       getUserByName,
+      findUsersByName,
       addMember,
       updateAttendanceChoice,
       applyReplacementByMaster,
