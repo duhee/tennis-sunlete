@@ -3,7 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
 import { Badge } from '../ui/badge.js';
 import { getScheduleDateKey, toDateKey } from './scheduleUtils.js';
 import { getScheduleStatus, seasonCodeToLabel } from '../../data/mockData.js';
+import { useAppData } from '../../context/AppDataContext.js';
+import { toast } from 'sonner';
 import type { ScheduleSelectorProps } from './types.js';
+import type { User } from '../../data/mockData.js';
 
 export function ScheduleSelector({
   schedules,
@@ -13,6 +16,7 @@ export function ScheduleSelector({
   onToggleShowClosed,
   isMobilePreview,
 }: ScheduleSelectorProps) {
+  const { users } = useAppData();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -158,6 +162,17 @@ export function ScheduleSelector({
               return undefined;
             })();
 
+            // 참석 인원 집계
+            const totalConfirmed = schedule.participants.length;
+            let male = 0, female = 0, guest = 0;
+            schedule.participants.forEach((uid: string) => {
+              const user = users.find((u: User) => u.id === uid);
+              if (!user) return;
+              if (user.isGuest) guest++;
+              else if (user.gender === 'F') female++;
+              else male++;
+            });
+
             return (
               <button
                 key={schedule.id}
@@ -170,10 +185,14 @@ export function ScheduleSelector({
                     ? 'border-[#030213] bg-[#030213] text-white'
                     : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
                 }`}
+                style={{ minWidth: 180 }}
               >
-                <div className="text-sm font-semibold">{dateStr}</div>
-                <div className="text-xs mt-1">
-                  {seasonCode && <span>{seasonCodeToLabel(seasonCode)} </span>}
+                {/* 일정(날짜) + 시즌 라벨: ? 버튼 클릭 시 토스트 */}
+                <div className="flex items-center justify-center text-base font-bold mb-1">
+                  {dateStr}
+                </div>
+                {/* 접수 상태 라벨 */}
+                <div className="mb-1">
                   <Badge
                     variant="outline"
                     className="text-xs py-0"
@@ -185,6 +204,10 @@ export function ScheduleSelector({
                   >
                     {getStatusLabel(status, schedule)}
                   </Badge>
+                </div>
+                {/* 참석 인원 요약 */}
+                <div className="text-xs mt-1">
+                  참석 여 {female}명 / 남 {male}명{guest > 0 ? ` / 게스트 ${guest}명` : ''} (총 {totalConfirmed}명)
                 </div>
                 {isPast && (
                   <div className="text-xs text-gray-400 mt-1">과거 일정</div>
