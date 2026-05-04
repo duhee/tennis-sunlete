@@ -1,4 +1,9 @@
-import type { AppData } from '../data/mockData.js'; // (경로는 기존 설정에 맞게 유지하세요)
+import {
+  deriveParticipantState,
+  getScheduleStatus,
+  type AppData,
+  type WeeklyMatchSchedule,
+} from '../data/mockData.js'; // (경로는 기존 설정에 맞게 유지하세요)
 import { supabase } from './supabaseClient.js';
 
 type UserRow = {
@@ -8,17 +13,19 @@ type UserRow = {
   phone_last_4: string | null;
   is_guest: boolean;
   is_withdrawn: boolean;
-  active_seasons: string[];
-  season_stats: unknown[];
+  active_seasons: string[] | null;
+  season_stats: any[] | null;
 };
 
 type ScheduleRow = {
   id: string;
   date: string;
   season_code: string | null;
-  attendance_deadline: string;
-  max_participants: number;
-  status: 'open' | 'draw_waiting' | 'closed';
+  attendance_deadline: string | null;
+  max_participants: number | null;
+  status: 'open' | 'draw_waiting' | 'closed' | null;
+  participants?: string[] | null;
+  waitlist?: string[] | null;
 };
 
 type AttendanceRequestRow = {
@@ -33,8 +40,8 @@ type DoublesMatchRow = {
   id: string;
   schedule_id: string;
   date: string;
-  team_a: string[];
-  team_b: string[];
+  team_a: string[] | null;
+  team_b: string[] | null;
   score_a: number | null;
   score_b: number | null;
   result: 'teamA' | 'teamB' | 'draw' | null;
@@ -91,20 +98,23 @@ export async function fetchAppData(): Promise<AppData> {
     ]);
 
     // users 매핑 (필드명 변환)
-    const users = (usersRes.data || []).map(user => ({
+    const users = ((usersRes.data || []) as UserRow[]).map(user => ({
       id: user.id,
       name: user.name,
       gender: user.gender,
-      phoneLast4: user.phone_last_4,
+      phoneLast4: user.phone_last_4 ?? undefined,
       isGuest: user.is_guest,
       isWithdrawn: user.is_withdrawn,
-      activeSeasons: user.active_seasons,
-      seasonStats: user.season_stats,
+      activeSeasons: Array.isArray(user.active_seasons) ? user.active_seasons : [],
+      seasonStats: Array.isArray(user.season_stats) ? user.season_stats : [],
     }));
 
     // schedules 매핑 (attendanceRequests 포함)
-    const schedules = (schedulesRes.data || []).map(schedule => {
-      const scheduleRequests = (requestsRes.data || [])
+    const scheduleRows = (schedulesRes.data || []) as ScheduleRow[];
+    const requestRows = (requestsRes.data || []) as AttendanceRequestRow[];
+
+    const schedules = scheduleRows.map(schedule => {
+      const scheduleRequests = requestRows
         .filter(req => req.schedule_id === schedule.id)
         .map(req => ({
           userId: req.user_id,
@@ -112,22 +122,51 @@ export async function fetchAppData(): Promise<AppData> {
           status: req.status,
         }));
 
-      return {
-        ...schedule,
-        maxParticipants: schedule.max_participants,
-        attendanceDeadline: schedule.attendance_deadline,
+      const attendanceDeadline = schedule.attendance_deadline ?? `${schedule.date}T11:00:00+09:00`;
+      const maxParticipants = typeof schedule.max_participants === 'number' ? schedule.max_participants : 6;
+
+      const baseSchedule: WeeklyMatchSchedule = {
+        id: schedule.id,
+        date: schedule.date,
+        seasonCode: schedule.season_code ?? undefined,
+        attendanceDeadline,
+        maxParticipants,
+        status: 'open',
         attendanceRequests: scheduleRequests,
+        participants: [],
+        waitlist: [],
+      };
+
+      const derived = deriveParticipantState(baseSchedule, users);
+      const participants = Array.isArray(schedule.participants)
+        ? schedule.participants
+        : derived.participants;
+      const waitlist = Array.isArray(schedule.waitlist)
+        ? schedule.waitlist
+        : derived.waitlist;
+
+      const normalized: WeeklyMatchSchedule = {
+        ...baseSchedule,
+        participants,
+        waitlist,
+      };
+
+      return {
+        ...normalized,
+        status: getScheduleStatus(normalized),
       };
     });
 
     // matches 매핑 (필드명 변환)
-    const doublesMatches = (matchesRes.data || []).map(match => ({
-      ...match,
+    const doublesMatches = ((matchesRes.data || []) as DoublesMatchRow[]).map(match => ({
+      id: match.id,
       scheduleId: match.schedule_id,
-      teamA: match.team_a,
-      teamB: match.team_b,
+      date: match.date,
+      teamA: Array.isArray(match.team_a) ? match.team_a : [],
+      teamB: Array.isArray(match.team_b) ? match.team_b : [],
       scoreA: match.score_a,
       scoreB: match.score_b,
+      result: match.result ?? null,
       isConfirmed: match.is_confirmed,
     }));
 
