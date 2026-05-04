@@ -102,6 +102,14 @@ export function MasterPage() {
   }, [schedules, selectedScheduleId]);
 
   const selectedSchedule = schedules.find(s => s.id === selectedScheduleId);
+  const selectedScheduleParticipants = useMemo(
+    () => (Array.isArray(selectedSchedule?.participants) ? selectedSchedule.participants : []),
+    [selectedSchedule]
+  );
+  const selectedScheduleAttendanceRequests = useMemo(
+    () => (Array.isArray(selectedSchedule?.attendanceRequests) ? selectedSchedule.attendanceRequests : []),
+    [selectedSchedule]
+  );
   const selectedScheduleStatus = selectedSchedule ? getScheduleStatus(selectedSchedule) : 'open';
   const selectedScheduleSeasonCode = useMemo(() => {
     if (!selectedSchedule) return undefined;
@@ -130,25 +138,25 @@ export function MasterPage() {
   const absentUsers = useMemo(() => {
     if (!selectedSchedule) return [];
 
-    return selectedSchedule.attendanceRequests
+    return selectedScheduleAttendanceRequests
       .filter((request: any) => request.status === 'absent')
       .map((request: any) => getUserById(request.userId))
       .filter(Boolean) as UserType[];
-  }, [selectedSchedule, users]);
+  }, [selectedSchedule, selectedScheduleAttendanceRequests, users]);
 
   const noResponseUsers = useMemo(() => {
     if (!selectedSchedule) return [];
 
     return selectedScheduleSeasonMembers.filter(
-      member => !selectedSchedule.attendanceRequests.some((request: any) => request.userId === member.id)
+      member => !selectedScheduleAttendanceRequests.some((request: any) => request.userId === member.id)
     );
-  }, [selectedSchedule, selectedScheduleSeasonMembers]);
+  }, [selectedSchedule, selectedScheduleSeasonMembers, selectedScheduleAttendanceRequests]);
 
   const replacementCandidates = useMemo(() => {
     if (!selectedSchedule) return [];
-    const blocked = new Set(selectedSchedule.participants);
+    const blocked = new Set(selectedScheduleParticipants);
     return selectedScheduleSeasonMembers.filter(user => !blocked.has(user.id));
-  }, [selectedSchedule, selectedScheduleSeasonMembers]);
+  }, [selectedSchedule, selectedScheduleSeasonMembers, selectedScheduleParticipants]);
 
   const allSeasons = useMemo(() => {
     const set = new Set<string>();
@@ -189,8 +197,7 @@ export function MasterPage() {
       (selectedScheduleStatus === 'draw_waiting' || (isPastSchedule && !hasRecordedScores))
   );
 
-  const participantCountCondition =
-    (selectedSchedule?.participants.length ?? 0) >= 6;
+  const participantCountCondition = selectedScheduleParticipants.length >= 6;
 
   const generationValidation = {
     scheduleSelected: Boolean(selectedSchedule),
@@ -217,7 +224,7 @@ export function MasterPage() {
     }
 
 
-    if (selectedSchedule.participants.length < 6) {
+    if (selectedScheduleParticipants.length < 6) {
       toast.error('대진 생성에는 참석자 최소 6명이 필요합니다');
       return;
     }
@@ -231,7 +238,7 @@ export function MasterPage() {
       if (!confirmed) return;
     }
 
-    const players = selectedSchedule.participants
+    const players = selectedScheduleParticipants
       .map(participantId => {
         const user = getUserById(participantId);
         if (!user) return null;
@@ -356,12 +363,14 @@ export function MasterPage() {
             )
           : [...existingStats, { seasonCode: season, total_sessions: totalSessions, attended_sessions: 0, wins: 0, losses: 0 }];
         updateUserSeasonStats(member.id, updatedStats);
-          // 시즌 총 회차가 설정되면 경기 일정 자동 생성
-          if (totalSessions > 0) {
-            addSchedulesForSeason(season, totalSessions);
-          }
       }
     });
+
+    // 시즌 총 회차가 설정되면 경기 일정 자동 생성 (시즌 저장당 1회만 실행)
+    if (totalSessions > 0) {
+      addSchedulesForSeason(season, totalSessions);
+    }
+
     toast.success(`${seasonCodeToLabel(season)} 시즌이 저장됐습니다`);
   };
 
@@ -401,7 +410,7 @@ export function MasterPage() {
 
   const handleCreateMemberFromComponent = (season: string, name: string, phoneLast4: string) => {
     const created = addMember(name, phoneLast4, {
-      gender: 'W',
+      gender: 'F',
       activeSeasons: [season],
     });
 

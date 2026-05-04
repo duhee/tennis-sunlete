@@ -75,6 +75,9 @@ export function ProfilePage() {
   const { schedules, doublesMatches, getUserById: getUserFromStore, hydrated } = useAppData();
   const user = getUserFromStore(userId || '');
   const userIdSafe = user?.id ?? '';
+  const includesUserId = (list: unknown, id: string): boolean => Array.isArray(list) && list.includes(id);
+  const safeIdList = (list: unknown): string[] =>
+    Array.isArray(list) ? (list as unknown[]).filter((v): v is string => typeof v === 'string') : [];
   const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
   const [matchDialogOpen, setMatchDialogOpen] = useState(false);
   // 시즌 상세 모달 상태
@@ -169,7 +172,7 @@ export function ProfilePage() {
       };
 
       prev.totalSessions += 1;
-      if (schedule.participants.includes(userIdSafe)) {
+      if (includesUserId(schedule.participants, userIdSafe)) {
         prev.attendedSessions += 1;
       }
 
@@ -177,7 +180,7 @@ export function ProfilePage() {
     });
 
     doublesMatches
-      .filter((match: any) => match.teamA.includes(userIdSafe) || match.teamB.includes(userIdSafe))
+      .filter((match: any) => includesUserId(match.teamA, userIdSafe) || includesUserId(match.teamB, userIdSafe))
       .forEach((match: any) => {
         const season = toSeasonInfo(match.date);
         const prev = statsMap.get(season.key) ?? {
@@ -190,7 +193,7 @@ export function ProfilePage() {
           draws: 0,
         };
 
-        const userOnTeamA = match.teamA.includes(userIdSafe);
+        const userOnTeamA = includesUserId(match.teamA, userIdSafe);
         if (match.result === 'draw') {
           prev.draws += 1;
         } else if (match.result === 'teamA' || match.result === 'teamB') {
@@ -250,7 +253,7 @@ export function ProfilePage() {
       schedules
         .filter(schedule => {
           const season = toSeasonInfo(schedule.date);
-          return userIdSafe && schedule.participants.includes(userIdSafe) && season.key === todayKey;
+          return userIdSafe && includesUserId(schedule.participants, userIdSafe) && season.key === todayKey;
         })
         .sort((a, b) => b.date.localeCompare(a.date)),
     [schedules, userIdSafe, todayKey]
@@ -261,15 +264,17 @@ export function ProfilePage() {
       doublesMatches
         .filter(match => {
           const season = toSeasonInfo(match.date);
-          return userIdSafe && (match.teamA.includes(userIdSafe) || match.teamB.includes(userIdSafe)) && season.key === todayKey;
+          return userIdSafe && (includesUserId(match.teamA, userIdSafe) || includesUserId(match.teamB, userIdSafe)) && season.key === todayKey;
         })
         .sort((a, b) => b.date.localeCompare(a.date))
         .map(match => {
-          const userOnTeamA = match.teamA.includes(userIdSafe);
+          const teamAIds = safeIdList(match.teamA);
+          const teamBIds = safeIdList(match.teamB);
+          const userOnTeamA = teamAIds.includes(userIdSafe);
           const teammateId = userOnTeamA
-            ? match.teamA.find((id: string) => id !== userIdSafe)
-            : match.teamB.find((id: string) => id !== userIdSafe);
-          const opponentIds = userOnTeamA ? match.teamB : match.teamA;
+            ? teamAIds.find((id: string) => id !== userIdSafe)
+            : teamBIds.find((id: string) => id !== userIdSafe);
+          const opponentIds = userOnTeamA ? teamBIds : teamAIds;
 
           const teammateName = teammateId ? getUserFromStore(teammateId as string)?.name ?? '알 수 없음' : '단식';
           const opponentNames = opponentIds
@@ -422,7 +427,7 @@ export function ProfilePage() {
                             ? schedules
                                 .filter((sch) => {
                                   const s = toSeasonInfo(sch.date);
-                                  return user && sch.participants.includes(user.id) && s.key === selectedSeasonKey;
+                                  return !!user && includesUserId(sch.participants, user.id) && s.key === selectedSeasonKey;
                                 })
                                 .map((sch) => sch.date)
                                 .sort((a, b) => b.localeCompare(a))
@@ -431,17 +436,19 @@ export function ProfilePage() {
                             ? doublesMatches
                                 .filter((match) => {
                                   const s = toSeasonInfo(match.date);
-                                  return user && (match.teamA.includes(user.id) || match.teamB.includes(user.id)) && s.key === selectedSeasonKey;
+                                  return !!user && (includesUserId(match.teamA, user.id) || includesUserId(match.teamB, user.id)) && s.key === selectedSeasonKey;
                                 })
                                 .sort((a, b) => b.date.localeCompare(a.date))
                                 .map((match) => {
-                                  const userOnTeamA = user ? match.teamA.includes(user.id) : false;
+                                  const teamAIds = safeIdList(match.teamA);
+                                  const teamBIds = safeIdList(match.teamB);
+                                  const userOnTeamA = user ? teamAIds.includes(user.id) : false;
                                   const teammateId = userOnTeamA && user
-                                    ? match.teamA.find((id: string) => id !== user.id)
+                                    ? teamAIds.find((id: string) => id !== user.id)
                                     : user
-                                    ? match.teamB.find((id: string) => id !== user.id)
+                                    ? teamBIds.find((id: string) => id !== user.id)
                                     : undefined;
-                                  const opponentIds = userOnTeamA && user ? match.teamB : match.teamA;
+                                  const opponentIds = userOnTeamA && user ? teamBIds : teamAIds;
                                   const teammateName = teammateId ? getUserFromStore(teammateId as string)?.name ?? '알 수 없음' : '단식';
                                   const opponentNames = opponentIds
                                     .map((id: string) => getUserFromStore(id)?.name ?? '알 수 없음')

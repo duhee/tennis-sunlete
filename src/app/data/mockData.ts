@@ -54,7 +54,7 @@ export interface WeeklyMatchSchedule {
   attendanceRequests: AttendanceRequest[];
   participants: string[]; // derived from attendanceRequests + policy
   waitlist: string[]; // derived from attendanceRequests + policy
-  attendanceDeadline: string; // every Sunday 15:00 update 기준
+  attendanceDeadline: string; // next schedule attendance opens at Monday 11:00 (KST)
   status: ScheduleStatus;
   maxParticipants: number;
 }
@@ -171,10 +171,22 @@ export const generateSchedulesForSeason = (seasonCode: string, totalSessions: nu
     attendanceRequests: [],
     participants: [],
     waitlist: [],
-    attendanceDeadline: `${dateStr}T15:00:00+09:00`,
+    attendanceDeadline: formatAsKstOffset(getScheduleOpenAt(dateStr)),
     status: 'open' as const,
     maxParticipants: 6,
   }));
+};
+
+export const formatAsKstOffset = (date: Date): string => {
+  const kstMs = date.getTime() + 9 * 60 * 60 * 1000;
+  const kst = new Date(kstMs);
+  const yyyy = kst.getUTCFullYear();
+  const mm = String(kst.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(kst.getUTCDate()).padStart(2, '0');
+  const hh = String(kst.getUTCHours()).padStart(2, '0');
+  const min = String(kst.getUTCMinutes()).padStart(2, '0');
+  const ss = String(kst.getUTCSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}+09:00`;
 };
 
 // Calculate total stats across all seasons
@@ -266,7 +278,17 @@ export const deriveParticipantState = (schedule: WeeklyMatchSchedule, users: Use
 
 export const getScheduleDrawCutoff = (scheduleDate: string): Date => {
   const date = new Date(`${scheduleDate}T00:00:00+09:00`);
-  date.setDate(date.getDate() - 7);
+  // Sunday match date -> draw waiting starts on Monday 11:00 (6 days before)
+  date.setDate(date.getDate() - 6);
+  date.setHours(11, 0, 0, 0);
+  return date;
+};
+
+export const getScheduleOpenAt = (scheduleDate: string): Date => {
+  const date = new Date(`${scheduleDate}T00:00:00+09:00`);
+  // Next Sunday schedule opens on previous week's Monday 11:00 (13 days before)
+  date.setDate(date.getDate() - 13);
+  date.setHours(11, 0, 0, 0);
   return date;
 };
 
@@ -304,6 +326,17 @@ export const updateAttendanceRequest = (
   requestedAt: string = new Date().toISOString(),
   users: User[] = []
 ): WeeklyMatchSchedule => {
+  const requestAt = new Date(requestedAt);
+  const openAt = schedule.attendanceDeadline
+    ? new Date(schedule.attendanceDeadline)
+    : getScheduleOpenAt(schedule.date);
+  const drawCutoff = getScheduleDrawCutoff(schedule.date);
+
+  // Attendance can be changed only while open (openAt <= now < drawCutoff)
+  if (requestAt < openAt || requestAt >= drawCutoff) {
+    return refreshScheduleSnapshot(schedule, users);
+  }
+
   const cleaned = schedule.attendanceRequests.filter(row => row.userId !== userId);
   
   let nextRequests: AttendanceRequest[];

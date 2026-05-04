@@ -17,6 +17,12 @@ export function ReplacementManager({
   const [replacementUserId, setReplacementUserId] = useState<string>('');
   const [guestName, setGuestName] = useState<string>('');
   const [guestGender, setGuestGender] = useState<'M' | 'F'>('F');
+  const scheduleParticipants = Array.isArray(selectedSchedule?.participants)
+    ? selectedSchedule.participants
+    : [];
+  const safeReplacementCandidates = Array.isArray(replacementCandidates)
+    ? replacementCandidates
+    : [];
 
   const handleApplyReplacement = () => {
     if (!selectedSchedule || !absentUserId) {
@@ -89,7 +95,7 @@ export function ReplacementManager({
           >
             <option value="">불참자 선택</option>
             <option value="empty-slot">빈자리(미응답/미정)</option>
-            {selectedSchedule.participants.map((id: string) => {
+            {scheduleParticipants.map((id: string) => {
               const user = getUserById(id);
               return user ? (
                 <option key={id} value={id}>{user.name}{user.isGuest ? ' (게스트)' : ''}</option>
@@ -129,7 +135,7 @@ export function ReplacementManager({
               autoComplete="off"
             >
               <option value="">대참 멤버 선택</option>
-              {replacementCandidates.map(user => (
+              {safeReplacementCandidates.map(user => (
                 <option key={user.id} value={user.id}>{user.name}</option>
               ))}
             </select>

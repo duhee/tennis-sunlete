@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.
 import { Button } from '../components/ui/button.js';
 import { Badge } from '../components/ui/badge.js';
 import { Toaster } from '../components/ui/sonner.js';
-import { toast } from 'sonner';
+import { toast, useSonner } from 'sonner';
 
 interface ScoreInput {
   scoreA: string;
@@ -76,6 +76,51 @@ function getScheduleSeasonCode(schedule: { date: string; seasonCode?: string; id
 }
 
 export function UserDashboard() {
+    // 팝업 중복 방지용 고유 ID
+    const TOAST_ID = 'attendance-info-toast';
+    const { toasts } = useSonner();
+
+    // 바깥 클릭시 토스트 닫기
+    React.useEffect(() => {
+      if (!toasts.some(t => t.id === TOAST_ID)) return;
+      const handleClick = (e: MouseEvent) => {
+        // 토스트 내부 클릭은 무시
+        const toastEl = document.querySelector('[data-sonner-toast][data-id="' + TOAST_ID + '"]');
+        if (toastEl && toastEl.contains(e.target as Node)) return;
+        toast.dismiss(TOAST_ID);
+      };
+      document.addEventListener('mousedown', handleClick);
+      return () => document.removeEventListener('mousedown', handleClick);
+    }, [toasts]);
+
+    // 토스트 안내 메시지
+    const handleInfoToast = () => {
+      // 이미 열려있으면 새로 띄우지 않음
+      if (toasts.some(t => t.id === TOAST_ID)) return;
+      toast(
+        <div>
+          <div className="font-bold mb-1">매주 월요일 11:00 출석 업데이트 안내</div>
+          <div className="font-semibold mt-2 mb-1">새 일정 오픈</div>
+          <div className="text-xs mb-2" style={{ color: '#D77B9A' }}>새 주차의 출석 카드가 열립니다.<br/>원활한 게스트 모집을 위해 일정 확정을 미리 해주세요.</div>
+          <div className="font-semibold mt-2 mb-1">출석 마감 및 대진 대기</div>
+          <div className="text-xs" style={{ color: '#D77B9A' }}>다가오는 주차의 출석이 마감되어 참/불 변경이 불가합니다.<br/>마감 후 일정 변경은 마스터(장두희)에게 문의해 주세요.</div>
+        </div>,
+        {
+          id: TOAST_ID,
+          duration: 8000,
+          position: 'bottom-right',
+          style: {
+            background: '#FFF4F7', // 옅은 분홍색
+            color: '#C2185B',      // 진한 분홍 텍스트
+            border: '1px solid #FFD6E3', // 연분홍 테두리
+            fontSize: '14px',
+            minWidth: '320px',
+            maxWidth: '90vw',
+          },
+          dismissible: true,
+        }
+      );
+    };
   const { currentUser, isAdmin } = useAuth();
   const {
     users,
@@ -220,12 +265,26 @@ export function UserDashboard() {
 
   return (
     <PageLayout>
+      <Toaster />
       <div className="min-h-screen bg-white">
         <div className="max-w-md mx-auto p-6">
           <div className="mb-6">
             <div>
               <h1 className="text-2xl font-bold">안녕하세요, {currentUser}님!</h1>
             </div>
+            {activeTab === 'attendance' && (
+              <div className="mt-2 text-gray-400 font-normal text-left" style={{ fontSize: '9px' }}>
+                <button
+                  type="button"
+                  onClick={handleInfoToast}
+                  className="underline underline-offset-4 hover:text-[#FF6F91] transition-colors cursor-pointer bg-transparent p-0 border-0 text-left w-full"
+                  style={{ fontWeight: 400, fontSize: '12px' }}
+                  aria-label="출석 안내 자세히 보기"
+                >
+                  매주 월요일 11:00, 새 일정이 오픈되며 다가오는 경기의 출석이 마감됩니다.
+                </button>
+              </div>
+            )}
           </div>
 
         {activeTab === 'bracket' && (
@@ -684,7 +743,6 @@ export function UserDashboard() {
 
         </div>
       </div>
-      <Toaster />
     </PageLayout>
   );
 }

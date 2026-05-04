@@ -32,8 +32,17 @@ export function ScheduleSelector({
     getScheduleDateKey(a).localeCompare(getScheduleDateKey(b))
   );
 
+  // 시즌 코드 기준으로 최근 3시즌만 추출
+  const allSeasonCodes = Array.from(
+    new Set(sortedSchedules.map(s => s.seasonCode).filter(Boolean))
+  ).sort().reverse();
+  const recent3Seasons = allSeasonCodes.slice(0, 3);
+
   const pastClosedSchedules = sortedSchedules.filter(
-    s => getScheduleStatus(s) === 'closed' && getScheduleDateKey(s) < todayKey
+    s =>
+      getScheduleStatus(s) === 'closed' &&
+      getScheduleDateKey(s) < todayKey &&
+      (s.seasonCode && recent3Seasons.includes(s.seasonCode))
   );
 
   const primarySchedules = sortedSchedules.filter(

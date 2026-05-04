@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   getAttendanceRate,
   updateAttendanceRequest,
@@ -104,6 +104,20 @@ function incrementSeasonStats(
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<PersistedData>(() => loadInitialData());
   const [hydrated, setHydrated] = useState(false);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  const enqueueSave = (next: PersistedData) => {
+    if (!hydrated) return;
+
+    saveQueueRef.current = saveQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        await saveAppData(next);
+      })
+      .catch((error: any) => {
+        console.error('Failed to sync app data to server:', error);
+      });
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -138,11 +152,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const commitData = (updater: (prev: PersistedData) => PersistedData) => {
     setData((prev: PersistedData) => {
       const next = updater(prev);
-      if (hydrated) {
-        void saveAppData(next).catch((error: any) => {
-          console.error('Failed to sync app data to server:', error);
-        });
-      }
+      enqueueSave(next);
       return next;
     });
   };
@@ -164,7 +174,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const created: User = {
       id: `member-${Date.now()}`,
       name: normalizedName,
-      gender: options?.gender ?? 'W',
+      gender: options?.gender ?? 'F',
       phoneLast4,
       activeSeasons: normalizedSeasons,
       isGuest: false,

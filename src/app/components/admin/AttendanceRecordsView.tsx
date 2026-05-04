@@ -20,6 +20,16 @@ export function AttendanceRecordsView({
   statusLabel,
   isMobilePreview,
 }: AttendanceRecordsViewProps) {
+  const scheduleParticipants = Array.isArray(selectedSchedule?.participants)
+    ? selectedSchedule.participants
+    : [];
+  const scheduleWaitlist = Array.isArray(selectedSchedule?.waitlist)
+    ? selectedSchedule.waitlist
+    : [];
+  const safeAttendanceRecords = Array.isArray(attendanceRecords) ? attendanceRecords : [];
+  const safeAbsentUsers = Array.isArray(absentUsers) ? absentUsers : [];
+  const safeNoResponseUsers = Array.isArray(noResponseUsers) ? noResponseUsers : [];
+
   if (!selectedSchedule) {
     return (
       <Card className="mb-6">
@@ -70,13 +80,13 @@ export function AttendanceRecordsView({
         <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
           <Badge variant="outline">{statusLabel}</Badge>
           <span className="text-gray-400">
-            참석 {selectedSchedule.participants.length ?? 0}명 · 대기 {selectedSchedule.waitlist.length ?? 0}명
+            참석 {scheduleParticipants.length}명 · 대기 {scheduleWaitlist.length}명
           </span>
         </div>
 
         {isMobilePreview ? (
           <div className="space-y-2">
-            {attendanceRecords.map((row: any, index: number) => (
+            {safeAttendanceRecords.map((row: any, index: number) => (
               <div
                 key={row.userId}
                 className="rounded-lg border border-gray-200 px-3 py-3 space-y-2"
@@ -128,7 +138,7 @@ export function AttendanceRecordsView({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {attendanceRecords.map((row: any, index: number) => (
+                {safeAttendanceRecords.map((row: any, index: number) => (
                   <TableRow
                     key={row.userId}
                     style={{
@@ -169,8 +179,8 @@ export function AttendanceRecordsView({
             <div>
               <p className="text-xs text-gray-500 mb-2">불참 멤버</p>
               <div className="flex flex-wrap gap-2">
-                {absentUsers.length > 0 ? (
-                  absentUsers.map(member => (
+                {safeAbsentUsers.length > 0 ? (
+                  safeAbsentUsers.map(member => (
                     <span
                       key={member.id}
                       className="px-2 py-1 bg-white border border-gray-200 rounded-md text-xs text-red-700"
@@ -187,8 +197,8 @@ export function AttendanceRecordsView({
             <div>
               <p className="text-xs text-gray-500 mb-2">미응답 멤버</p>
               <div className="flex flex-wrap gap-2">
-                {noResponseUsers.length > 0 ? (
-                  noResponseUsers.map(member => (
+                {safeNoResponseUsers.length > 0 ? (
+                  safeNoResponseUsers.map(member => (
                     <span
                       key={member.id}
                       className="px-2 py-1 bg-white border border-gray-200 rounded-md text-xs text-gray-600"

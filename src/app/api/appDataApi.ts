@@ -49,6 +49,24 @@ function buildInFilter(ids: string[]): string {
   return `(${ids.map(escapeInValue).join(',')})`;
 }
 
+function toKstOffsetString(input: string): string {
+  const parsed = new Date(input);
+  if (Number.isNaN(parsed.getTime())) {
+    return input;
+  }
+
+  const kstMs = parsed.getTime() + 9 * 60 * 60 * 1000;
+  const kst = new Date(kstMs);
+  const yyyy = kst.getUTCFullYear();
+  const mm = String(kst.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(kst.getUTCDate()).padStart(2, '0');
+  const hh = String(kst.getUTCHours()).padStart(2, '0');
+  const min = String(kst.getUTCMinutes()).padStart(2, '0');
+  const ss = String(kst.getUTCSeconds()).padStart(2, '0');
+
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}+09:00`;
+}
+
 async function pruneTable(tableName: 'users' | 'schedules' | 'attendance_requests' | 'doubles_matches', ids: string[]) {
   const query = supabase.from(tableName).delete();
 
@@ -138,7 +156,7 @@ export async function saveAppData(data: AppData): Promise<void> {
     id: schedule.id,
     date: schedule.date,
     season_code: schedule.seasonCode ?? null,
-    attendance_deadline: schedule.attendanceDeadline,
+    attendance_deadline: toKstOffsetString(schedule.attendanceDeadline),
     max_participants: schedule.maxParticipants,
     status: schedule.status,
   }));
