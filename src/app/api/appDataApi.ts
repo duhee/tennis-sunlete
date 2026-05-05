@@ -34,7 +34,31 @@ type AttendanceRequestRow = {
   user_id: string;
   requested_at: string;
   status: 'attend' | 'absent';
+  date: string;
 };
+
+// schedule_id(26S1-w1) → date(2026-02-01) 변환
+function scheduleIdToDate(scheduleId: string): string {
+  // ex: 26S1-w1
+  const m = scheduleId.match(/^(\d{2})S([1-4])-w(\d{1,2})$/);
+  if (!m) return '';
+  const yy = parseInt(m[1], 10);
+  const s = parseInt(m[2], 10);
+  const week = parseInt(m[3], 10);
+  const year = 2000 + yy;
+  // 시즌별 시작 월
+  const startMonth = { 1: 2, 2: 5, 3: 8, 4: 11 }[s];
+  if (!startMonth) return '';
+  // 시즌별 시작일: 첫 번째 일요일 찾기
+  let d = new Date(year, startMonth - 1, 1);
+  while (d.getDay() !== 0) d.setDate(d.getDate() + 1); // 첫 일요일
+  d.setDate(d.getDate() + 7 * (week - 1));
+  // yyyy-mm-dd
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 type DoublesMatchRow = {
   id: string;
@@ -212,6 +236,7 @@ export async function saveAppData(data: AppData): Promise<void> {
       user_id: request.userId,
       requested_at: request.requestedAt,
       status: request.status,
+      date: scheduleIdToDate(schedule.id),
     }))
   );
 
