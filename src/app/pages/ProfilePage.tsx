@@ -393,13 +393,13 @@ export function ProfilePage() {
                             })
                             .map((sch) => sch.date)
                             .sort((a, b) => b.localeCompare(a));
-                          const seasonMatchRecords = doublesMatches
+                          const seasonMatchRecordsByDate = doublesMatches
                             .filter((match) => {
                               const seasonCode = inferSeasonCodeFromDate(match.date);
                               return !!user && (includesUserId(match.teamA, user.id) || includesUserId(match.teamB, user.id)) && seasonCode === selectedSeasonKey;
                             })
                             .sort((a, b) => b.date.localeCompare(a.date))
-                            .map((match) => {
+                            .reduce((groups, match) => {
                               const teamAIds = safeIdList(match.teamA);
                               const teamBIds = safeIdList(match.teamB);
                               const userOnTeamA = user ? teamAIds.includes(user.id) : false;
@@ -417,21 +417,39 @@ export function ProfilePage() {
                               const myScore = hasScore ? (userOnTeamA ? match.scoreA : match.scoreB) : null;
                               const oppScore = hasScore ? (userOnTeamA ? match.scoreB : match.scoreA) : null;
                               let resultText = '기록 없음';
+
                               if (match.result === 'draw') {
                                 resultText = '무승부';
                               } else if (match.result === 'teamA' || match.result === 'teamB') {
                                 const won = (match.result === 'teamA' && userOnTeamA) || (match.result === 'teamB' && !userOnTeamA);
                                 resultText = won ? '승' : '패';
                               }
-                              return {
+
+                              const record = {
                                 id: match.id,
-                                date: match.date,
                                 teammateName,
                                 opponentNames,
                                 scoreText: hasScore ? `${myScore} : ${oppScore}` : '스코어 미기록',
                                 resultText,
                               };
-                            });
+
+                              const existing = groups.find(group => group.date === match.date);
+                              if (existing) {
+                                existing.records.push(record);
+                              } else {
+                                groups.push({ date: match.date, records: [record] });
+                              }
+                              return groups;
+                            }, [] as Array<{
+                              date: string;
+                              records: Array<{
+                                id: string;
+                                teammateName: string;
+                                opponentNames: string;
+                                scoreText: string;
+                                resultText: string;
+                              }>;
+                            }>);
                           content = (
                             <>
                               <div className="mb-6">
@@ -479,17 +497,32 @@ export function ProfilePage() {
                               </div>
                               <div>
                                 <h4 className="font-semibold mb-2">경기 기록</h4>
-                                {seasonMatchRecords.length > 0 ? (
-                                  <div className="space-y-2">
-                                    {seasonMatchRecords.map(record => (
-                                      <div key={record.id} className="rounded border border-gray-200 bg-white px-3 py-2">
-                                        <div className="flex justify-between mb-1">
-                                          <span className="text-xs text-gray-500">{new Date(record.date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}</span>
-                                          <span className="text-xs font-semibold text-gray-700">{record.resultText}</span>
+                                {seasonMatchRecordsByDate.length > 0 ? (
+                                  <div className="space-y-3">
+                                    {seasonMatchRecordsByDate.map(group => (
+                                      <div key={group.date} className="rounded-md border border-gray-200 bg-white overflow-hidden">
+                                        <div className="px-3 py-2 border-b border-gray-200 bg-[#F8F9FA]">
+                                          <p className="text-sm font-semibold text-[#030213]">
+                                            {new Date(group.date).toLocaleDateString('ko-KR', {
+                                              year: 'numeric',
+                                              month: 'long',
+                                              day: 'numeric',
+                                              weekday: 'short',
+                                            })}
+                                          </p>
                                         </div>
-                                        <div className="text-xs text-gray-600">파트너: {record.teammateName}</div>
-                                        <div className="text-xs text-gray-600">상대: {record.opponentNames}</div>
-                                        <div className="text-xs text-gray-600">스코어: {record.scoreText}</div>
+                                        <div className="divide-y divide-gray-200">
+                                          {group.records.map(record => (
+                                            <div key={record.id} className="px-3 py-3 space-y-1.5">
+                                              <p className="text-xs text-gray-600">파트너: {record.teammateName}</p>
+                                              <p className="text-xs text-gray-600">상대: {record.opponentNames}</p>
+                                              <div className="flex items-center justify-between pt-1">
+                                                <p className="text-sm font-medium text-[#030213]">스코어 {record.scoreText}</p>
+                                                <span className="text-xs font-semibold text-gray-700">{record.resultText}</span>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
                                       </div>
                                     ))}
                                   </div>
