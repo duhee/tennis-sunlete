@@ -625,9 +625,13 @@ export function UserDashboard() {
                 (member: any) => !schedule.attendanceRequests.some((request: any) => request.userId === member.id)
               );
               const scheduleStatus = getScheduleStatus(schedule, effectiveNow);
+              const hasConfirmedBracket = doublesMatches.some(
+                (match: any) => match.scheduleId === schedule.id && match.isConfirmed
+              );
               const isAttendanceOpen = isScheduleAttendanceOpen(schedule, effectiveNow);
               const isAttendancePending = scheduleStatus === 'open' && !isAttendanceOpen;
-              const isDrawWaiting = scheduleStatus === 'draw_waiting';
+              const isDrawWaiting = scheduleStatus === 'draw_waiting' && !hasConfirmedBracket;
+              const isBracketConfirmed = scheduleStatus === 'draw_waiting' && hasConfirmedBracket;
               const isAttendSelected = myStatus === 'attending' || myStatus === 'waitlist';
               // 시즌 멤버 여부
               const isSeasonMember = !!userId && seasonMembers.some(m => m.id === userId);
@@ -700,6 +704,9 @@ export function UserDashboard() {
                     </div>
 
                     <div className="mt-2">
+                      {isBracketConfirmed && (
+                        <Badge style={{ backgroundColor: '#E8F5E9', color: '#2E7D32' }}>대진표 확정됨</Badge>
+                      )}
                       {isDrawWaiting && (
                         <div className="flex items-center gap-1">
                           <Badge style={{ backgroundColor: '#E3F2FD', color: '#1565C0' }}>대진표 생성 대기중</Badge>
