@@ -106,19 +106,6 @@ export function MemberAttendancePanel({
         <div className="flex items-center justify-between gap-2">
           <div>
             <CardTitle>회원 출석 관리</CardTitle>
-            <button
-              type="button"
-              onClick={() =>
-                toast('출석 우선순위 안내', {
-                  description:
-                    '진행된 회차(참석자 1명 이상 일정) 기준 출석률이 50% 미만이면서 상위 30%에도 들지 않으면 우선순위로 분류됩니다.',
-                  duration: 4500,
-                })
-              }
-              className="mt-1 text-xs text-gray-500 underline underline-offset-2 hover:text-gray-700"
-            >
-              출석 우선순위 기준 보기
-            </button>
           </div>
           <Button variant="ghost" size="sm" onClick={() => setIsExpanded(prev => !prev)}>
             {isExpanded ? <ChevronDown className="w-4 h-4 mr-1" /> : <ChevronRight className="w-4 h-4 mr-1" />}

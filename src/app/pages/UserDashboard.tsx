@@ -11,6 +11,7 @@ import {
   Share2,
   CircleHelp,
 } from 'lucide-react';
+import { getTotalStats, getWinRate, getMatchPointMetrics } from '../data/mockData.js';
 import { getScheduleStatus, getScheduleDrawCutoff, type WeeklyMatchSchedule } from '../data/mockData.js';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.js';
 import { Button } from '../components/ui/button.js';
@@ -76,6 +77,9 @@ function getScheduleSeasonCode(schedule: { date: string; seasonCode?: string; id
 }
 
 export function UserDashboard() {
+    // 시즌 전체 회원 출석 현황 모달 상태
+    const [showSeasonAttendanceModal, setShowSeasonAttendanceModal] = useState(false);
+
   React.useEffect(() => {
     if (typeof window === 'undefined' || document.getElementById('priority-fade-keyframes')) return;
 
@@ -160,6 +164,64 @@ export function UserDashboard() {
   const [searchParams] = useSearchParams();
   const activeTab: 'bracket' | 'attendance' =
     searchParams.get('tab') === 'attendance' ? 'attendance' : 'bracket';
+
+  // 이번 시즌 코드 추출 (가장 최근 일정 기준)
+  const latestSchedule = useMemo(() => schedules.slice().sort((a, b) => (b.date > a.date ? 1 : -1))[0], [schedules]);
+  const currentSeasonCode = latestSchedule ? getScheduleSeasonCode(latestSchedule) : undefined;
+  // 이번 시즌 멤버
+  const seasonMembers = useMemo(
+    () =>
+      typeof currentSeasonCode === 'string'
+        ? users.filter(
+            u =>
+              !u.isGuest &&
+              !u.isWithdrawn &&
+              Array.isArray(u.activeSeasons) &&
+              u.activeSeasons.includes(currentSeasonCode)
+          )
+        : [],
+    [users, currentSeasonCode]
+  );
+  // 이번 시즌 모든 일정
+  const seasonSchedules = useMemo(() => schedules.filter(s => getScheduleSeasonCode(s) === currentSeasonCode), [schedules, currentSeasonCode]);
+  // 진행된 회차(참석자 1명 이상)만 집계
+  const progressedSchedules = useMemo(
+    () => seasonSchedules.filter(s => Array.isArray(s.participants) && s.participants.length > 0),
+    [seasonSchedules]
+  );
+  const totalProgressedSessions = progressedSchedules.length;
+  // 멤버별 출석률/상태 집계 (회원 출석 관리와 동일)
+  const getProgressedAttendanceRate = (userId: string): number => {
+    const attended = progressedSchedules.filter(s => Array.isArray(s.participants) && s.participants.includes(userId)).length;
+    return Math.round((attended / (totalProgressedSessions || 1)) * 100);
+  };
+  const progressedRates = seasonMembers.map(m => getProgressedAttendanceRate(m.id)).sort((a, b) => b - a);
+  const top30Count = Math.max(1, Math.ceil(seasonMembers.length * 0.3));
+  const top30Cutoff = progressedRates[top30Count - 1] ?? 0;
+  const isNormalStatus = (userId: string): boolean => {
+    const rate = getProgressedAttendanceRate(userId);
+    return rate >= 50 || rate >= top30Cutoff;
+  };
+  // 멤버별 참석/불참/미응답 집계 (진행된 회차 기준)
+  const memberAttendanceMap = useMemo(() => {
+    const map: Record<string, { attended: number; absent: number; noResponse: number; total: number }> = {};
+    seasonMembers.forEach(member => {
+      let attended = 0, absent = 0, noResponse = 0, total = 0;
+      progressedSchedules.forEach(sch => {
+        const req = sch.attendanceRequests?.find((r: any) => r.userId === member.id);
+        if (!req) {
+          noResponse++;
+        } else if (req.status === 'attend') {
+          attended++;
+        } else if (req.status === 'absent') {
+          absent++;
+        }
+        total++;
+      });
+      map[member.id] = { attended, absent, noResponse, total };
+    });
+    return map;
+  }, [seasonMembers, progressedSchedules]);
 
   const confirmedMatches = useMemo(() => {
     const now = new Date();
@@ -798,6 +860,92 @@ export function UserDashboard() {
               <Share2 className="w-4 h-4 mr-2" />
               공유하기
             </Button>
+          </div>
+        )}
+
+        {/* 시즌 전체 회원 출석 현황 버튼 & 모달 */}
+        {activeTab === 'attendance' && (
+          <div className="flex flex-col items-center mt-8 mb-4">
+            <Button
+              type="button"
+              style={{ backgroundColor: '#F8F9FA', color: '#9CA3AF', border: '1px solid #E5E7EB', fontWeight: 500 }}
+              onClick={() => setShowSeasonAttendanceModal(true)}
+            >
+              이번 시즌 전체 회원 출석 현황 보기
+            </Button>
+          </div>
+        )}
+
+        {showSeasonAttendanceModal && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex flex-col">
+            <div className="flex-1 flex flex-col items-center justify-center overflow-auto">
+              <div className="bg-white rounded-none md:rounded-xl shadow-lg p-0 md:p-6 w-full h-full md:max-w-3xl md:h-auto relative flex flex-col">
+                <button
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl z-10"
+                  onClick={() => setShowSeasonAttendanceModal(false)}
+                  aria-label="닫기"
+                >
+                  ×
+                </button>
+                <div className="p-4 md:p-6 flex-1 flex flex-col">
+                  <h2 className="text-lg font-bold mb-2 text-[#C2185B]">이번 시즌 전체 회원 출석 현황</h2>
+                  <div className="mb-2 text-xs text-gray-500">진행된 회차: <span className="font-bold text-[#C2185B]">{totalProgressedSessions}</span></div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-xs border">
+                      <thead>
+                        <tr className="bg-[#FFF4F7] text-[#C2185B]">
+                          <th className="px-2 py-1 border">순위</th>
+                          <th className="px-2 py-1 border">이름</th>
+                          <th className="px-2 py-1 border">출석</th>
+                          <th className="px-2 py-1 border">출석률</th>
+                          <th className="px-2 py-1 border">승률 (WR)</th>
+                          <th className="px-2 py-1 border">상태</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {seasonMembers
+                          .map(member => ({
+                            member,
+                            rate: getProgressedAttendanceRate(member.id),
+                            isNormal: isNormalStatus(member.id),
+                            att: memberAttendanceMap[member.id] || { attended: 0, absent: 0, noResponse: 0, total: 0 },
+                            winRate: getWinRate(member, currentSeasonCode),
+                          }))
+                          .sort((a, b) => {
+                            if (b.rate !== a.rate) return b.rate - a.rate;
+                            if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+                            return a.member.name.localeCompare(b.member.name, 'ko');
+                          })
+                          .map((row, idx) => {
+                            const { member, rate, isNormal, att, winRate } = row;
+                            return (
+                              <tr key={member.id} className="text-center border-b hover:bg-[#FFF8FA]">
+                                <td className="px-2 py-1 border">{idx + 1}</td>
+                                <td className="px-2 py-1 border font-semibold text-[#030213]">{member.name}</td>
+                                <td className="px-2 py-1 border text-green-700">{att.attended}</td>
+                                <td className="px-2 py-1 border">{rate}%</td>
+                                <td className="px-2 py-1 border">{winRate}%</td>
+                                <td className="px-2 py-1 border">
+                                  {isNormal ? (
+                                    <Badge style={{ backgroundColor: '#FFC1CC', color: '#030213' }}>정상</Badge>
+                                  ) : (
+                                    <Badge style={{ backgroundColor: '#FF4D4D', color: 'white' }}>우선순위</Badge>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-4 text-xs text-gray-500">
+                    ※ 출석률 = (진행된 회차 중 참석) / (진행된 회차) × 100<br />
+                    ※ 우선순위: 출석률 50% 미만 & 하위 30%<br />
+                    ※ 정상: 출석률 50% 이상 또는 상위 30%
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
