@@ -367,6 +367,14 @@ export const getScheduleOpenAt = (scheduleDate: string): Date => {
   return date;
 };
 
+export const getScheduleAttendanceOpenAt = (scheduleDate: string): Date => {
+  const date = new Date(`${scheduleDate}T00:00:00+09:00`);
+  // Attendance page shows and opens voting from Monday 11:00, 20 days before the match.
+  date.setDate(date.getDate() - 20);
+  date.setHours(11, 0, 0, 0);
+  return date;
+};
+
 export const getScheduleStatus = (
   schedule: WeeklyMatchSchedule,
   now: Date = new Date()
@@ -382,6 +390,27 @@ export const getScheduleStatus = (
   }
 
   return 'open';
+};
+
+export const isWithinNext3Weeks = (
+  schedule: Pick<WeeklyMatchSchedule, 'date'>,
+  now: Date = new Date()
+): boolean => {
+  const matchDate = new Date(`${schedule.date}T00:00:00+09:00`);
+  const diffWeeks = (matchDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 7);
+  return diffWeeks >= 0 && diffWeeks < 3;
+};
+
+export const isScheduleAttendanceOpen = (
+  schedule: WeeklyMatchSchedule,
+  now: Date = new Date()
+): boolean => {
+  if (getScheduleStatus(schedule, now) !== 'open') {
+    return false;
+  }
+
+  // 3주 이내 일정은 모두 참/불 투표 가능
+  return isWithinNext3Weeks(schedule, now);
 };
 
 export const refreshScheduleSnapshot = (schedule: WeeklyMatchSchedule, users: User[] = []): WeeklyMatchSchedule => {
@@ -403,13 +432,10 @@ export const updateAttendanceRequest = (
   users: User[] = []
 ): WeeklyMatchSchedule => {
   const requestAt = new Date(requestedAt);
-  const openAt = schedule.attendanceDeadline
-    ? new Date(schedule.attendanceDeadline)
-    : getScheduleOpenAt(schedule.date);
   const drawCutoff = getScheduleDrawCutoff(schedule.date);
 
-  // Attendance can be changed only while open (openAt <= now < drawCutoff)
-  if (requestAt < openAt || requestAt >= drawCutoff) {
+  // Attendance can be changed only while the schedule is open for requests.
+  if (!isScheduleAttendanceOpen(schedule, requestAt) || requestAt >= drawCutoff) {
     return refreshScheduleSnapshot(schedule, users);
   }
 

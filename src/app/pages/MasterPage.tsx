@@ -39,6 +39,7 @@ import { Toaster } from '../components/ui/sonner.js';
 import { toast } from 'sonner';
 import type { GeneratedMatch, ReplacementParams } from '../components/admin/types.js';
 import type { User as UserType } from '../data/mockData.js';
+import { getNextMondayAt11, toDatetimeLocalValue, useDebugNow } from '../context/useDebugNow.js';
 
 type ScoreInputPanelProps = {
   scheduleId: string;
@@ -201,6 +202,15 @@ export function MasterPage() {
       navigate('/');
     }
   }, [isAdmin, navigate]);
+  const {
+    debugTimeEnabled,
+    debugTimeValue,
+    debugNow,
+    effectiveNow,
+    setDebugTimeEnabled,
+    setDebugTimeValue,
+    resetDebugTime,
+  } = useDebugNow();
 
   const memberUsers = useMemo(
     () => users.filter(user => !user.isGuest && !user.isWithdrawn && !user.id.startsWith('guest-')),
@@ -229,7 +239,7 @@ export function MasterPage() {
     () => (Array.isArray(selectedSchedule?.attendanceRequests) ? selectedSchedule.attendanceRequests : []),
     [selectedSchedule]
   );
-  const selectedScheduleStatus = selectedSchedule ? getScheduleStatus(selectedSchedule) : 'open';
+  const selectedScheduleStatus = selectedSchedule ? getScheduleStatus(selectedSchedule, effectiveNow) : 'open';
   const selectedScheduleSeasonCode = useMemo(() => {
     if (!selectedSchedule) return undefined;
     return getScheduleSeasonCode(selectedSchedule);
@@ -311,7 +321,7 @@ export function MasterPage() {
     });
   }, [memberUsers]);
 
-  const today = new Date();
+  const today = effectiveNow;
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const scheduleDateKey = (selectedSchedule?.date || '').slice(0, 10);
   const isPastSchedule = Boolean(selectedSchedule && scheduleDateKey < todayKey);
@@ -744,6 +754,76 @@ export function MasterPage() {
           </div>
         </div>
 
+        <div className="mb-6 rounded-xl border border-dashed border-gray-300 bg-[#FAFAFA] p-4">
+          <div className={`${isMobilePreview ? 'space-y-3' : 'flex items-start justify-between gap-4'}`}>
+            <div>
+              <p className="text-sm font-semibold text-[#030213]">디버깅 모드</p>
+              <p className="mt-1 text-xs text-gray-500">기준 시각을 바꿔서 다음 주 일정 오픈, 대진 대기, 경기 당일 전환을 테스트합니다.</p>
+              <p className="mt-2 text-xs text-gray-600">
+                현재 적용 시각: {effectiveNow.toLocaleString('ko-KR')}
+                {debugNow ? ' (시뮬레이션)' : ' (실시간)'}
+              </p>
+            </div>
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={debugTimeEnabled}
+                onChange={event => {
+                  const enabled = event.target.checked;
+                  setDebugTimeEnabled(enabled);
+                  if (enabled && !debugTimeValue) {
+                    setDebugTimeValue(toDatetimeLocalValue(new Date()));
+                  }
+                }}
+              />
+              시뮬레이션 켜기
+            </label>
+          </div>
+
+          {debugTimeEnabled && (
+            <div className="mt-4 space-y-3">
+              <input
+                type="datetime-local"
+                value={debugTimeValue}
+                onChange={event => setDebugTimeValue(event.target.value)}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+              />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDebugTimeValue(toDatetimeLocalValue(new Date()))}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700"
+                >
+                  지금으로 설정
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDebugTimeValue(toDatetimeLocalValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)))}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700"
+                >
+                  1주 뒤
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDebugTimeValue(toDatetimeLocalValue(getNextMondayAt11(new Date())))}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700"
+                >
+                  다음 월요일 11:00
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetDebugTime();
+                  }}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700"
+                >
+                  리셋
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="mb-6">
           <ScheduleSelector
             schedules={schedules}
@@ -752,6 +832,7 @@ export function MasterPage() {
             showClosedPastSchedules={showClosedPastSchedules}
             onToggleShowClosed={setShowClosedPastSchedules}
             isMobilePreview={isMobilePreview}
+            debugNow={debugNow}
              onPastScheduleDoubleClick={(schedule: any) => {
                setScoreDialogSchedule(schedule);
                setScoreDialogOpen(true);

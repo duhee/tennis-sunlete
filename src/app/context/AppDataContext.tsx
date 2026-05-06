@@ -32,7 +32,12 @@ interface AppDataContextType {
   getUserByName: (name: string) => User | undefined;
   findUsersByName: (name: string) => User[];
   addMember: (name: string, phoneLast4: string, options?: { gender?: 'M' | 'F' | 'W'; activeSeasons?: string[] }) => User | null;
-  updateAttendanceChoice: (scheduleId: string, userId: string, choice: 'attend' | 'absent' | 'cancel') => void;
+  updateAttendanceChoice: (
+    scheduleId: string,
+    userId: string,
+    choice: 'attend' | 'absent' | 'cancel',
+    requestedAt?: string
+  ) => void;
   updateAttendanceChoiceByMaster: (scheduleId: string, userId: string, choice: 'attend' | 'absent' | 'cancel') => void;
   applyReplacementByMaster: (scheduleId: string, absentUserId: string, replacementUserId: string) => void;
   addGuestAndReplace: (scheduleId: string, absentUserId: string, guestName: string, guestGender: 'M' | 'F', existingGuestId?: string) => void;
@@ -279,11 +284,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return created;
   };
 
-  const updateAttendanceChoice = (scheduleId: string, userId: string, choice: 'attend' | 'absent' | 'cancel') => {
+  const updateAttendanceChoice = (
+    scheduleId: string,
+    userId: string,
+    choice: 'attend' | 'absent' | 'cancel',
+    requestedAt?: string
+  ) => {
     commitData((prev: PersistedData) => ({
       ...prev,
       schedules: prev.schedules.map(schedule =>
-        schedule.id === scheduleId ? updateAttendanceRequest(schedule, userId, choice, undefined, prev.users) : schedule
+        schedule.id === scheduleId
+          ? updateAttendanceRequest(schedule, userId, choice, requestedAt, prev.users)
+          : schedule
       ),
     }));
   };

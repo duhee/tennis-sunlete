@@ -12,12 +12,13 @@ import {
   CircleHelp,
 } from 'lucide-react';
 import { getTotalStats, getWinRate, getMatchPointMetrics } from '../data/mockData.js';
-import { getScheduleStatus, getScheduleDrawCutoff, type WeeklyMatchSchedule } from '../data/mockData.js';
+import { getScheduleStatus, getScheduleDrawCutoff, isWithinNext3Weeks, isScheduleAttendanceOpen, type WeeklyMatchSchedule } from '../data/mockData.js';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.js';
 import { Button } from '../components/ui/button.js';
 import { Badge } from '../components/ui/badge.js';
 import { Toaster } from '../components/ui/sonner.js';
 import { toast, useSonner } from 'sonner';
+import { useDebugNow } from '../context/useDebugNow.js';
 
 interface ScoreInput {
   scoreA: string;
@@ -37,14 +38,6 @@ function toDateKey(dateLike: string): string {
   }
 
   return dateLike;
-}
-
-function getTodayDateKey(): string {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
 }
 
 function inferSeasonCodeFromDate(date: string): string | undefined {
@@ -79,6 +72,7 @@ function getScheduleSeasonCode(schedule: { date: string; seasonCode?: string; id
 export function UserDashboard() {
     // 시즌 전체 회원 출석 현황 모달 상태
     const [showSeasonAttendanceModal, setShowSeasonAttendanceModal] = useState(false);
+  const { debugNow, effectiveNow } = useDebugNow();
 
   React.useEffect(() => {
     if (typeof window === 'undefined' || document.getElementById('priority-fade-keyframes')) return;
@@ -224,7 +218,7 @@ export function UserDashboard() {
   }, [seasonMembers, progressedSchedules]);
 
   const confirmedMatches = useMemo(() => {
-    const now = new Date();
+    const now = effectiveNow;
     const allConfirmed = doublesMatches.filter((m: any) => m.isConfirmed && m.date);
 
     // 고유 날짜(오름차순)
@@ -264,21 +258,30 @@ export function UserDashboard() {
       const s = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       return s === activeDateStr;
     });
-  }, [doublesMatches]);
+  }, [doublesMatches, effectiveNow]);
   const confirmedDate = confirmedMatches[0]?.date;
-  const todayDateKey = useMemo(() => getTodayDateKey(), []);
-
   const upcomingSchedules = useMemo(
-    () =>
-      [...schedules]
+    () => {
+      const now = effectiveNow;
+
+      return [...schedules]
         .filter(schedule => {
-          const scheduleStatus = getScheduleStatus(schedule);
+          const scheduleStatus = getScheduleStatus(schedule, now);
           const dateKey = toDateKey(schedule.date);
-          return dateKey >= todayDateKey && (scheduleStatus === 'open' || scheduleStatus === 'draw_waiting');
+          const visibleUntil = getScheduleDrawCutoff(dateKey);
+          visibleUntil.setDate(visibleUntil.getDate() + 7);
+
+          // open 상태 → 3주 이내 일정만 노출 (그 이전은 접수 대기로 숨김)
+          if (scheduleStatus === 'open') {
+            return isWithinNext3Weeks(schedule, now);
+          }
+          // draw_waiting → 경기 후 다음 월요일 11시까지 유지
+          return now < visibleUntil;
         })
         .sort((a, b) => toDateKey(a.date).localeCompare(toDateKey(b.date)))
-        .slice(0, 3),
-    [schedules, todayDateKey]
+        .slice(0, 3);
+    },
+      [effectiveNow, schedules]
   );
 
   const seasonWeekNumberBySeasonDate = useMemo(() => {
@@ -309,7 +312,7 @@ export function UserDashboard() {
 
   const handleAttendanceChoice = (scheduleId: string, choice: 'attend' | 'absent' | 'cancel') => {
     if (!userId) return;
-    updateAttendanceChoice(scheduleId, userId, choice);
+    updateAttendanceChoice(scheduleId, userId, choice, effectiveNow.toISOString());
   };
 
   const getMyAttendanceStatus = (schedule: WeeklyMatchSchedule) => {
@@ -394,6 +397,11 @@ export function UserDashboard() {
             <div>
               <h1 className="text-2xl font-bold">안녕하세요, {currentUser}님!</h1>
             </div>
+            {debugNow && (
+              <div className="mt-2 inline-flex rounded-md border border-dashed border-[#FFD6E3] bg-[#FFF8FA] px-2.5 py-1 text-[11px] text-[#C2185B]">
+                디버그 시간 적용 중: {effectiveNow.toLocaleString('ko-KR')}
+              </div>
+            )}
             {activeTab === 'attendance' && (
               <div className="mt-2 text-gray-400 font-normal text-left" style={{ fontSize: '9px' }}>
                 <button
@@ -601,8 +609,9 @@ export function UserDashboard() {
               const noResponseUsers = seasonMembers.filter(
                 (member: any) => !schedule.attendanceRequests.some((request: any) => request.userId === member.id)
               );
-              const scheduleStatus = getScheduleStatus(schedule);
-              const isOpen = scheduleStatus === 'open';
+              const scheduleStatus = getScheduleStatus(schedule, effectiveNow);
+              const isAttendanceOpen = isScheduleAttendanceOpen(schedule, effectiveNow);
+              const isAttendancePending = scheduleStatus === 'open' && !isAttendanceOpen;
               const isDrawWaiting = scheduleStatus === 'draw_waiting';
               const isAttendSelected = myStatus === 'attending' || myStatus === 'waitlist';
               // 시즌 멤버 여부
@@ -644,7 +653,7 @@ export function UserDashboard() {
                 }
 
                 return {
-                  backgroundColor: options?.isGuest ? '#FFC1CC' : '#FFFFFF',
+                  backgroundColor: '#FFFFFF',
                   outline: '0.5px solid #E5E7EB',
                 };
               };
@@ -652,9 +661,9 @@ export function UserDashboard() {
               return (
                 <Card
                   key={schedule.id}
-                  className={(myStatus === 'none' && isSeasonMember && !isDrawWaiting ? 'border-[#FFC1CC] animate-[pulse_3s_ease-in-out_infinite] ' : '') + 'mb-6'}
+                  className={(myStatus === 'none' && isSeasonMember && isAttendanceOpen ? 'border-[#FFC1CC] animate-[pulse_3s_ease-in-out_infinite] ' : '') + 'mb-6'}
                   style={
-                    myStatus === 'none' && isSeasonMember && !isDrawWaiting
+                    myStatus === 'none' && isSeasonMember && isAttendanceOpen
                       ? {
                           backgroundColor: '#F8F9FA',
                           boxShadow: '0 0 0 1px rgba(255,193,204,0.55), 0 0 18px rgba(255,193,204,0.25)',
@@ -699,9 +708,12 @@ export function UserDashboard() {
                       {scheduleStatus === 'closed' && (
                         <Badge variant="outline">마감</Badge>
                       )}
+                      {isAttendancePending && (
+                        <Badge variant="outline">접수 대기</Badge>
+                      )}
                     </div>
 
-                    {!isDrawWaiting && (
+                    {!isDrawWaiting && isAttendanceOpen && (
                       <div className="mt-3 flex gap-2">
                         {isSeasonMember ? (
                           <>
@@ -715,7 +727,7 @@ export function UserDashboard() {
                                 borderColor: isAttendSelected ? '#030213' : '#D1D5DB',
                               }}
                               onClick={() => handleAttendanceChoice(schedule.id, isAttendSelected ? 'cancel' : 'attend')}
-                              disabled={!isOpen && !isAttendSelected}
+                              disabled={!isAttendanceOpen && !isAttendSelected}
                             >
                               참석
                             </Button>
@@ -729,7 +741,7 @@ export function UserDashboard() {
                                 borderColor: myStatus === 'absent' ? '#030213' : '#D1D5DB',
                               }}
                               onClick={() => handleAttendanceChoice(schedule.id, myStatus === 'absent' ? 'cancel' : 'absent')}
-                              disabled={!isOpen && myStatus !== 'absent'}
+                              disabled={!isAttendanceOpen && myStatus !== 'absent'}
                             >
                               불참
                             </Button>
@@ -739,6 +751,12 @@ export function UserDashboard() {
                             시즌 멤버가 아닙니다. 호스트에게 문의하세요
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {isAttendancePending && (
+                      <div className="mt-3 rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+                        아직 출석 오픈 전인 일정입니다.
                       </div>
                     )}
 
@@ -770,7 +788,7 @@ export function UserDashboard() {
                           guestApplicants.map((player: any) => (
                             <span
                               key={player!.id}
-                              className="px-2 py-1 bg-[#FFC1CC] rounded-md text-xs font-medium text-[#030213]"
+                              className="px-2 py-1 bg-white rounded-md text-xs font-medium text-[#030213]"
                               style={getAttendanceNameStyle(player!.id, { isGuest: true })}
                             >
                               {player!.name}

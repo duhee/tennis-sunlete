@@ -33,6 +33,7 @@ export interface ScheduleSelectorProps {
   showClosedPastSchedules: boolean;
   onToggleShowClosed: (show: boolean) => void;
   isMobilePreview: boolean;
+  debugNow?: Date | null;
 }
 
 // ScheduleInfo Props

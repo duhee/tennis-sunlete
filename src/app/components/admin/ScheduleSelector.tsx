@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
 import { Badge } from '../ui/badge.js';
 import { getScheduleDateKey, toDateKey } from './scheduleUtils.js';
-import { getScheduleStatus, seasonCodeToLabel } from '../../data/mockData.js';
+import { getScheduleStatus, isScheduleAttendanceOpen, isWithinNext3Weeks, seasonCodeToLabel } from '../../data/mockData.js';
 import { useAppData } from '../../context/AppDataContext.js';
 import { toast } from 'sonner';
 import type { ScheduleSelectorProps } from './types.js';
@@ -19,14 +19,16 @@ export function ScheduleSelector({
   showClosedPastSchedules,
   onToggleShowClosed,
   isMobilePreview,
+  debugNow,
   onPastScheduleDoubleClick,
 }: ScheduleSelectorWithDoubleClickProps) {
   const { users } = useAppData();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const effectiveNow = debugNow ?? new Date();
 
   const todayKey = (() => {
-    const now = new Date();
+    const now = effectiveNow;
     const yyyy = now.getFullYear();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
@@ -45,13 +47,13 @@ export function ScheduleSelector({
 
   const pastClosedSchedules = sortedSchedules.filter(
     s =>
-      getScheduleStatus(s) === 'closed' &&
+      getScheduleStatus(s, effectiveNow) === 'closed' &&
       getScheduleDateKey(s) < todayKey &&
       (s.seasonCode && recent3Seasons.includes(s.seasonCode))
   );
 
   const primarySchedules = sortedSchedules.filter(
-    s => !(getScheduleStatus(s) === 'closed' && getScheduleDateKey(s) < todayKey)
+    s => !(getScheduleStatus(s, effectiveNow) === 'closed' && getScheduleDateKey(s) < todayKey)
   );
 
   const schedulesForPicker = showClosedPastSchedules
@@ -75,28 +77,9 @@ export function ScheduleSelector({
     container.scrollTo({ left: Math.max(0, nextLeft), behavior: 'smooth' });
   }, [selectedScheduleId, schedulesForPicker]);
 
-  // 3주치만 '참석 접수중', 그 이전은 '접수 대기'
-  const isAttendanceOpen = (schedule: any) => {
-    if (!schedule.attendanceDeadline) return false;
-    const now = new Date();
-    const deadline = new Date(schedule.attendanceDeadline);
-    return now >= deadline;
-  };
-
-  // 3주치만 '참석 접수중'으로 표시
-  const isWithinNext3Weeks = (schedule: any) => {
-    if (!schedule.date) return false;
-    const now = new Date();
-    const matchDate = new Date(schedule.date + 'T00:00:00+09:00');
-    const diff = (matchDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 7);
-    return diff >= 0 && diff < 3;
-  };
-
   const getStatusLabel = (status: string, schedule: any) => {
     if (status === 'open') {
-      if (isAttendanceOpen(schedule)) {
-        return '참석 접수중';
-      } else if (isWithinNext3Weeks(schedule)) {
+      if (isScheduleAttendanceOpen(schedule, effectiveNow) || isWithinNext3Weeks(schedule, effectiveNow)) {
         return '참석 접수중';
       } else {
         return '접수 대기';
@@ -114,7 +97,7 @@ export function ScheduleSelector({
 
   const getStatusColor = (status: string, schedule: any) => {
     if (status === 'open') {
-      if (isAttendanceOpen(schedule) || isWithinNext3Weeks(schedule)) {
+      if (isScheduleAttendanceOpen(schedule, effectiveNow) || isWithinNext3Weeks(schedule, effectiveNow)) {
         return { backgroundColor: '#E8F5E9', color: '#2E7D32' };
       } else {
         return { backgroundColor: '#F5F5F5', color: '#999' };
@@ -158,7 +141,7 @@ export function ScheduleSelector({
           }}
         >
           {schedulesForPicker.map(schedule => {
-            const status = getScheduleStatus(schedule);
+            const status = getScheduleStatus(schedule, effectiveNow);
             const dateKey = getScheduleDateKey(schedule);
             const isPast = dateKey < todayKey;
             const dateStr = new Date(schedule.date || schedule.attendanceDeadline || '').toLocaleDateString(
