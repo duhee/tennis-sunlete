@@ -348,6 +348,33 @@ export function MasterPage() {
     statusMessage: hasRecordedScores ? '스코어가 입력된 과거 일정은 대진을 재생성할 수 없습니다.' : undefined,
   };
 
+  React.useEffect(() => {
+    if (!selectedScheduleId) {
+      setGeneratedBracket([]);
+      setBracketConfirmed(false);
+      return;
+    }
+
+    const confirmedMatches = doublesMatches
+      .filter(match => match.scheduleId === selectedScheduleId && match.isConfirmed)
+      .sort((a, b) => a.id.localeCompare(b.id));
+
+    if (confirmedMatches.length === 0) {
+      setGeneratedBracket([]);
+      setBracketConfirmed(false);
+      return;
+    }
+
+    setGeneratedBracket(
+      confirmedMatches.map(match => ({
+        id: match.id,
+        teamA: [...match.teamA],
+        teamB: [...match.teamB],
+      }))
+    );
+    setBracketConfirmed(true);
+  }, [selectedScheduleId, doublesMatches]);
+
   const handleGenerateDraw = async () => {
     if (!selectedSchedule) {
       toast.error('경기 일정을 선택해주세요');
@@ -517,8 +544,6 @@ export function MasterPage() {
 
   const handleSelectSchedule = (scheduleId: string) => {
     setSelectedScheduleId(scheduleId);
-    setGeneratedBracket([]);
-    setBracketConfirmed(false);
   };
 
   const handleSaveScores = (scores: { id: string; scoreA: number; scoreB: number }[]) => {

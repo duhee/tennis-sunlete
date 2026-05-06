@@ -457,6 +457,18 @@ export function UserDashboard() {
               const userInMatch = isUserInMatch(match);
               const hasSavedScore = typeof match.scoreA === 'number' && typeof match.scoreB === 'number';
 
+              const isMixed = (team: any[]) =>
+                team.some(p => p.gender === 'F' || p.gender === 'W') && team.some(p => p.gender === 'M');
+              const isAllFemale = (team: any[]) => team.every(p => p.gender === 'F' || p.gender === 'W');
+              const isAllMale = (team: any[]) => team.every(p => p.gender === 'M');
+              const getMatchTypeLabel = () => {
+                if (isMixed(teamAUsers) && isMixed(teamBUsers)) return '혼복';
+                if (isAllFemale(teamAUsers) && isAllFemale(teamBUsers)) return '여복';
+                if (isAllMale(teamAUsers) && isAllMale(teamBUsers)) return '남복';
+                return '혼복';
+              };
+              const matchTypeLabel = getMatchTypeLabel();
+
               return (
                 <Card
                   key={match.id}
@@ -467,6 +479,9 @@ export function UserDashboard() {
                     <div className="flex justify-between items-center gap-2">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="font-medium">{idx + 1}경기</Badge>
+                        <Badge variant="outline" className="text-xs py-0">
+                          {matchTypeLabel}
+                        </Badge>
                         {userInMatch && (
                           <Badge style={{ backgroundColor: '#FFC1CC', color: '#030213' }}>
                             내 경기
