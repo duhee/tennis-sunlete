@@ -352,7 +352,7 @@ export function ProfilePage() {
                     <DialogHeader>
                       <DialogTitle className="text-2xl">시즌 상세</DialogTitle>
                       <DialogDescription className="sr-only">
-                        선택한 시즌의 출석률, 승률, 득실차, 게임 승률, 출석 내역, 경기 기록을 확인하는 상세 팝업입니다.
+                        선택한 시즌의 출석률, 승률 (WR), 득실차 (GD), 게임 승률 (GWP), 출석 내역, 경기 기록을 확인하는 상세 팝업입니다.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="flex-1 min-h-0 overflow-y-auto space-y-6 mt-6">
@@ -460,7 +460,7 @@ export function ProfilePage() {
                                     <div className="text-lg font-bold">{seasonAttendanceRate}%</div>
                                   </div>
                                   <div>
-                                    <div className="text-xs text-gray-500 mb-1">승률</div>
+                                    <div className="text-xs text-gray-500 mb-1">승률 (WR)</div>
                                     <div className="text-lg font-bold">{seasonWinRate}%</div>
                                   </div>
                                   <div>
@@ -629,7 +629,7 @@ export function ProfilePage() {
 
               <div className="pt-4 border-t">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-600">승률</span>
+                  <span className="text-sm text-gray-600">승률 (WR)</span>
                   <span className="text-lg font-bold">{seasonWinRate}%</span>
                 </div>
                 <Progress value={seasonWinRate} className="h-3 bg-[#FFE8EE] [&>[data-slot=progress-indicator]]:bg-[#FFC1CC]" />
@@ -695,7 +695,7 @@ export function ProfilePage() {
               <DialogHeader>
                 <DialogTitle className="text-2xl">경기 상세 기록</DialogTitle>
                 <DialogDescription className="sr-only">
-                  이번 시즌 경기 기록과 파트너 통계, 승률 및 점수 지표 설명을 확인하는 상세 팝업입니다.
+                  이번 시즌 경기 기록과 파트너 통계, 승률 (WR), 득실차 (GD), 게임 승률 (GWP) 설명을 확인하는 상세 팝업입니다.
                 </DialogDescription>
               </DialogHeader>
               <div className="flex-1 min-h-0 overflow-y-auto space-y-4 mt-6">
@@ -741,9 +741,9 @@ export function ProfilePage() {
                 )}
 
                 <div className="rounded-md border border-gray-200 bg-[#FAFAFA] px-4 py-4 text-sm text-gray-500 space-y-2">
-                  <p>일반 승률: 승 + 무의 절반을 반영한 승률입니다. 현재는 `(승 + 0.5 x 무) / 총 경기` 기준으로 계산합니다.</p>
-                  <p>득실차 (GD): 내가 딴 총 점수에서 상대에게 내준 총 점수를 뺀 값입니다. 높을수록 경기 내용이 좋았다는 뜻입니다.</p>
-                  <p>게임 승률 (GWP): 전체 플레이 점수 중 내가 딴 점수의 비율입니다. 경기 수가 다른 멤버끼리 비교할 때 보정 지표로 보기 좋습니다.</p>
+                  <p><span className="font-semibold text-gray-600">승률 (WR / Win Rate)</span> <br/> 계산식: (승 + 무승부 x 0.5) / 총 경기 수 <br/> 의미: 무승부를 0.5승으로 반영한 기본 승패 비율입니다.</p>
+                  <p><span className="font-semibold text-gray-600">득실차 (GD / Game Differential)</span> <br/> 계산식: 따낸 스코어 - 내준 스코어 <br/> 의미: 경기 내용의 우위를 나타내는 누적 지표입니다.</p>
+                  <p><span className="font-semibold text-gray-600">게임 승률 (GWP / Game Win Percentage)</span> <br/> 계산식: 따낸 스코어 / 전체 플레이 스코어 <br/> 의미: 출석 편차를 보정하여 순수 경기력을 나타내는 지표입니다.</p>
                 </div>
               </div>
             </div>

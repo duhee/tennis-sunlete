@@ -430,6 +430,25 @@ export const updateAttendanceRequest = (
   }, users);
 };
 
+export const updateAttendanceRequestByAdmin = (
+  schedule: WeeklyMatchSchedule,
+  userId: string,
+  action: 'attend' | 'absent' | 'cancel',
+  requestedAt: string = new Date().toISOString(),
+  users: User[] = []
+): WeeklyMatchSchedule => {
+  const cleaned = schedule.attendanceRequests.filter(row => row.userId !== userId);
+
+  const nextRequests = action === 'cancel'
+    ? cleaned
+    : [...cleaned, { userId, requestedAt, status: action }];
+
+  return refreshScheduleSnapshot({
+    ...schedule,
+    attendanceRequests: nextRequests,
+  }, users);
+};
+
 export const applyReplacement = (
   schedule: WeeklyMatchSchedule,
   absentUserId: string,
@@ -467,6 +486,22 @@ export const applyReplacement = (
 
   const absentExisting = withoutReplacement.find(row => row.userId === absentUserId);
   const keptOthers = withoutReplacement.filter(row => row.userId !== absentUserId);
+
+  if (replacementUserId === 'empty-slot') {
+    const absentRow: AttendanceRequest = {
+      userId: absentUserId,
+      requestedAt: absentExisting?.requestedAt ?? requestedAt,
+      status: 'absent',
+    };
+
+    return refreshScheduleSnapshot({
+      ...schedule,
+      attendanceRequests: [
+        ...keptOthers,
+        absentRow,
+      ],
+    }, users);
+  }
 
   const absentRow: AttendanceRequest = {
     userId: absentUserId,

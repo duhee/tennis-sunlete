@@ -253,7 +253,7 @@ export async function saveAppData(data: AppData): Promise<void> {
   }));
 
   if (import.meta.env.DEV) {
-    console.log('[saveAppData] doubles_matches upsert payload', doublesMatchRows);
+    // console.log('[saveAppData] doubles_matches upsert payload', doublesMatchRows);
   }
 
   const { error: usersError } = await supabase.from('users').upsert(userRows);

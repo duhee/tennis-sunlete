@@ -62,18 +62,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = (user: User | null, password: string): boolean => {
-    console.log('[AuthContext] login called', user, password);
+    // console.log('[AuthContext] login called', user, password);
     if (!user || !password || !user.phoneLast4) {
-      console.log('[AuthContext] login fail: missing user or phoneLast4');
+      // console.log('[AuthContext] login fail: missing user or phoneLast4');
       return false;
     }
     if (user.phoneLast4 !== password) {
-      console.log('[AuthContext] login fail: phoneLast4 mismatch');
+      // console.log('[AuthContext] login fail: phoneLast4 mismatch');
       return false;
     }
     setCurrentUser(user.name);
     setIsAdmin(isMasterName(user.name));
-    console.log('[AuthContext] login success', user.name);
+    // console.log('[AuthContext] login success', user.name);
     return true;
   };
 

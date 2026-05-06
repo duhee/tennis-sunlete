@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight, TrendingDown } from 'lucide-react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
 import { Badge } from '../ui/badge.js';
 import { Button } from '../ui/button.js';
@@ -103,7 +104,22 @@ export function MemberAttendancePanel({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
-          <CardTitle>회원 출석 관리</CardTitle>
+          <div>
+            <CardTitle>회원 출석 관리</CardTitle>
+            <button
+              type="button"
+              onClick={() =>
+                toast('출석 우선순위 안내', {
+                  description:
+                    '진행된 회차(참석자 1명 이상 일정) 기준 출석률이 50% 미만이면서 상위 30%에도 들지 않으면 우선순위로 분류됩니다.',
+                  duration: 4500,
+                })
+              }
+              className="mt-1 text-xs text-gray-500 underline underline-offset-2 hover:text-gray-700"
+            >
+              출석 우선순위 기준 보기
+            </button>
+          </div>
           <Button variant="ghost" size="sm" onClick={() => setIsExpanded(prev => !prev)}>
             {isExpanded ? <ChevronDown className="w-4 h-4 mr-1" /> : <ChevronRight className="w-4 h-4 mr-1" />}
           </Button>
@@ -193,12 +209,12 @@ export function MemberAttendancePanel({
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500">전적</span>
                       <span className="font-medium">
-                        {totalGames}전 {totals.wins}승 {totals.losses}패 {totals.draws ?? 0}무 · 승률 {winRate}%
+                        {totalGames}전 {totals.wins}승 {totals.losses}패 {totals.draws ?? 0}무 · 승률 (WR) {winRate}%
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500">점수지표</span>
-                      <span className="font-medium">GD {formatSigned(pointMetrics.gameDifference)} · GWP {pointMetrics.gameWinRate.toFixed(1)}%</span>
+                      <span className="font-medium">득실차 (GD) {formatSigned(pointMetrics.gameDifference)} · 게임 승률 (GWP) {pointMetrics.gameWinRate.toFixed(1)}%</span>
                     </div>
                   </div>
                 );
@@ -214,7 +230,7 @@ export function MemberAttendancePanel({
                     <TableHead>출석</TableHead>
                     <TableHead>출석률</TableHead>
                     <TableHead>전적</TableHead>
-                    <TableHead>승률</TableHead>
+                    <TableHead>승률 (WR)</TableHead>
                     <TableHead>점수지표</TableHead>
                     <TableHead>상태</TableHead>
                   </TableRow>
@@ -267,8 +283,8 @@ export function MemberAttendancePanel({
                         <TableCell>{winRate}%</TableCell>
                         <TableCell>
                           <div className="text-xs leading-5">
-                            <div>GD {formatSigned(pointMetrics.gameDifference)}</div>
-                            <div>GWP {pointMetrics.gameWinRate.toFixed(1)}%</div>
+                            <div>득실차 (GD) {formatSigned(pointMetrics.gameDifference)}</div>
+                            <div>게임 승률 (GWP) {pointMetrics.gameWinRate.toFixed(1)}%</div>
                           </div>
                         </TableCell>
                         <TableCell>

@@ -76,6 +76,20 @@ function getScheduleSeasonCode(schedule: { date: string; seasonCode?: string; id
 }
 
 export function UserDashboard() {
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || document.getElementById('priority-fade-keyframes')) return;
+
+    const style = document.createElement('style');
+    style.id = 'priority-fade-keyframes';
+    style.innerHTML = `
+      @keyframes priorityFadeBg {
+        0% { background-color: #FFF8FA; }
+        100% { background-color: #FFE4EC; }
+      }
+    `;
+    document.head.appendChild(style);
+  }, []);
+
     // 팝업 중복 방지용 고유 ID
     const TOAST_ID = 'attendance-info-toast';
     const { toasts } = useSonner();
@@ -104,10 +118,15 @@ export function UserDashboard() {
           <div className="text-xs mb-2" style={{ color: '#D77B9A' }}>새 주차의 출석 카드가 열립니다.<br/>원활한 게스트 모집을 위해 일정 확정을 미리 해주세요.</div>
           <div className="font-semibold mt-2 mb-1">출석 마감 및 대진 대기</div>
           <div className="text-xs" style={{ color: '#D77B9A' }}>다가오는 주차의 출석이 마감되어 참/불 변경이 불가합니다.<br/>마감 후 일정 변경은 마스터(장두희)에게 문의해 주세요.</div>
+          <div className="font-semibold mt-2 mb-1">출석 우선순위</div>
+          <div className="text-xs" style={{ color: '#D77B9A' }}>
+            출석률 50% 이하, 상대적 하위 30%는 '우선순위'로 분류됩니다.<br/>
+            출석 동시 신청 시 우선순위 멤버에게 자리가 먼저 배정됩니다.<br/>
+          </div>
         </div>,
         {
           id: TOAST_ID,
-          duration: 8000,
+          duration: 12000,
           position: 'bottom-right',
           style: {
             background: '#FFF4F7', // 옅은 분홍색
@@ -527,6 +546,47 @@ export function UserDashboard() {
               // 시즌 멤버 여부
               const isSeasonMember = !!userId && seasonMembers.some(m => m.id === userId);
 
+              // 진행된 회차 기준 우선순위 판정
+              const progressedSch = schedules.filter(s => {
+                const sc = getScheduleSeasonCode(s);
+                if (scheduleSeasonCode && sc !== scheduleSeasonCode) return false;
+                return Array.isArray(s.participants) && s.participants.length > 0;
+              });
+              const totalProg = progressedSch.length;
+              const getProgRate = (uid: string) => {
+                const attended = progressedSch.filter(s => Array.isArray(s.participants) && s.participants.includes(uid)).length;
+                return Math.round((attended / (totalProg || 1)) * 100);
+              };
+              const progRates = seasonMembers.map((m: any) => getProgRate(m.id)).sort((a: number, b: number) => b - a);
+              const top30Cutoff = progRates[Math.max(1, Math.ceil(seasonMembers.length * 0.3)) - 1] ?? 0;
+              const isPriorityMember = (uid: string) => {
+                const rate = getProgRate(uid);
+                return !(rate >= 50 || rate >= top30Cutoff);
+              };
+              const getAttendanceNameStyle = (id: string, options?: { isGuest?: boolean }) => {
+                if (isPriorityMember(id)) {
+                  return {
+                    backgroundColor: '#FFF8FA',
+                    color: '#030213',
+                    outline: '0.5px solid #E5E7EB',
+                    animation: 'priorityFadeBg 1.4s ease-in-out infinite alternate',
+                  };
+                }
+
+                if (isMe(id)) {
+                  return {
+                    backgroundColor: '#030213',
+                    color: '#FFC1CC',
+                    outline: '0.5px solid #E5E7EB',
+                  };
+                }
+
+                return {
+                  backgroundColor: options?.isGuest ? '#FFC1CC' : '#FFFFFF',
+                  outline: '0.5px solid #E5E7EB',
+                };
+              };
+
               return (
                 <Card
                   key={schedule.id}
@@ -629,8 +689,8 @@ export function UserDashboard() {
                           memberApplicants.map((player: any) => (
                             <span
                               key={player!.id}
-                              className="px-2 py-1 bg-[#FFC1CC] rounded-md text-xs font-medium text-[#030213]"
-                              style={isMe(player!.id) ? { backgroundColor: '#030213', color: '#FFC1CC' } : undefined}
+                              className="px-2 py-1 bg-white rounded-md text-xs font-medium text-[#030213]"
+                              style={getAttendanceNameStyle(player!.id)}
                             >
                               {player!.name}
                             </span>
@@ -649,7 +709,7 @@ export function UserDashboard() {
                             <span
                               key={player!.id}
                               className="px-2 py-1 bg-[#FFC1CC] rounded-md text-xs font-medium text-[#030213]"
-                              style={isMe(player!.id) ? { backgroundColor: '#030213', color: '#FFC1CC' } : undefined}
+                              style={getAttendanceNameStyle(player!.id, { isGuest: true })}
                             >
                               {player!.name}
                             </span>
@@ -669,8 +729,8 @@ export function UserDashboard() {
                           waiters.map((player: any) => (
                             <span
                               key={player!.id}
-                              className="px-2 py-1 bg-white border border-gray-200 rounded-md text-xs text-gray-600"
-                              style={isMe(player!.id) ? { backgroundColor: '#030213', color: '#FFC1CC', borderColor: '#030213' } : undefined}
+                              className="px-2 py-1 bg-white rounded-md text-xs text-gray-600"
+                              style={getAttendanceNameStyle(player!.id)}
                             >
                               {player!.name}
                             </span>
@@ -688,8 +748,8 @@ export function UserDashboard() {
                           absentUsers.map((player: any) => (
                             <span
                               key={player!.id}
-                              className="px-2 py-1 bg-white border border-gray-200 rounded-md text-xs text-gray-600"
-                              style={isMe(player!.id) ? { backgroundColor: '#030213', color: '#FFC1CC', borderColor: '#030213' } : undefined}
+                              className="px-2 py-1 bg-white rounded-md text-xs text-gray-600"
+                              style={getAttendanceNameStyle(player!.id)}
                             >
                               {player!.name}
                             </span>
@@ -709,8 +769,8 @@ export function UserDashboard() {
                             .map(member => (
                               <span
                                 key={member.id}
-                                className="px-2 py-1 bg-white border border-gray-200 rounded-md text-xs text-gray-600"
-                                style={isMe(member.id) ? { backgroundColor: '#030213', color: '#FFC1CC', borderColor: '#030213' } : undefined}
+                                className="px-2 py-1 bg-white rounded-md text-xs text-gray-600"
+                                style={getAttendanceNameStyle(member.id)}
                               >
                                 {member.name}
                               </span>

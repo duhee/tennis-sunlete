@@ -143,7 +143,9 @@ export function MasterPage() {
     findUsersByName,
     addMember,
     applyReplacementByMaster,
+    updateAttendanceChoiceByMaster,
     addGuestAndReplace,
+    addGuestToScheduleByMaster,
     removeGuestUser,
     updateUserActiveSeasons,
     updateUserSeasonStats,
@@ -522,17 +524,44 @@ export function MasterPage() {
       return;
     }
 
-    if (!params.absentUserId) {
-      toast.error('불참자를 선택해주세요');
-      return;
-    }
-
     if (params.mode === 'member') {
       if (!params.replacementUserId) {
         toast.error('대참할 멤버를 선택해주세요');
         return;
       }
-      applyReplacementByMaster(selectedSchedule.id, params.absentUserId, params.replacementUserId);
+
+      if (params.absentUserId) {
+        applyReplacementByMaster(selectedSchedule.id, params.absentUserId, params.replacementUserId);
+      } else {
+        updateAttendanceChoiceByMaster(selectedSchedule.id, params.replacementUserId, 'attend');
+      }
+      return;
+    }
+
+    if (params.mode === 'empty-slot') {
+      if (!params.absentUserId) {
+        toast.error('불참자를 선택해주세요');
+        return;
+      }
+      applyReplacementByMaster(selectedSchedule.id, params.absentUserId, 'empty-slot');
+      return;
+    }
+
+    if (params.mode === 'absent') {
+      if (!params.absentUserId) {
+        toast.error('불참자를 선택해주세요');
+        return;
+      }
+      updateAttendanceChoiceByMaster(selectedSchedule.id, params.absentUserId, 'absent');
+      return;
+    }
+
+    if (params.mode === 'clear') {
+      if (!params.absentUserId) {
+        toast.error('불참자를 선택해주세요');
+        return;
+      }
+      updateAttendanceChoiceByMaster(selectedSchedule.id, params.absentUserId, 'cancel');
       return;
     }
 
@@ -561,7 +590,11 @@ export function MasterPage() {
       return;
     }
 
-    addGuestAndReplace(selectedSchedule.id, params.absentUserId, params.guestName.trim(), targetGuestGender);
+    if (params.absentUserId) {
+      addGuestAndReplace(selectedSchedule.id, params.absentUserId, params.guestName.trim(), targetGuestGender);
+    } else {
+      addGuestToScheduleByMaster(selectedSchedule.id, params.guestName.trim(), targetGuestGender);
+    }
   };
 
   const handleCreateMemberFromComponent = (season: string, name: string, phoneLast4: string) => {
@@ -637,12 +670,20 @@ export function MasterPage() {
               <AlertDialogCancel
                 onClick={() => {
                   if (duplicateGuestInfo && pendingGuestReplacement) {
-                    addGuestAndReplace(
-                      pendingGuestReplacement.scheduleId,
-                      pendingGuestReplacement.absentUserId,
-                      duplicateGuestInfo.name,
-                      duplicateGuestInfo.guestGender
-                    );
+                    if (pendingGuestReplacement.absentUserId) {
+                      addGuestAndReplace(
+                        pendingGuestReplacement.scheduleId,
+                        pendingGuestReplacement.absentUserId,
+                        duplicateGuestInfo.name,
+                        duplicateGuestInfo.guestGender
+                      );
+                    } else {
+                      addGuestToScheduleByMaster(
+                        pendingGuestReplacement.scheduleId,
+                        duplicateGuestInfo.name,
+                        duplicateGuestInfo.guestGender
+                      );
+                    }
                   }
                 }}
               >
@@ -651,13 +692,22 @@ export function MasterPage() {
               <AlertDialogAction
                 onClick={() => {
                   if (duplicateGuestInfo && pendingGuestReplacement) {
-                    addGuestAndReplace(
-                      pendingGuestReplacement.scheduleId,
-                      pendingGuestReplacement.absentUserId,
-                      duplicateGuestInfo.name,
-                      duplicateGuestInfo.guestGender,
-                      duplicateGuestInfo.existingGuestId
-                    );
+                    if (pendingGuestReplacement.absentUserId) {
+                      addGuestAndReplace(
+                        pendingGuestReplacement.scheduleId,
+                        pendingGuestReplacement.absentUserId,
+                        duplicateGuestInfo.name,
+                        duplicateGuestInfo.guestGender,
+                        duplicateGuestInfo.existingGuestId
+                      );
+                    } else {
+                      addGuestToScheduleByMaster(
+                        pendingGuestReplacement.scheduleId,
+                        duplicateGuestInfo.name,
+                        duplicateGuestInfo.guestGender,
+                        duplicateGuestInfo.existingGuestId
+                      );
+                    }
                   }
                 }}
               >

@@ -13,7 +13,7 @@ export function ReplacementManager({
   isMobilePreview,
 }: ReplacementManagerProps) {
   const [absentUserId, setAbsentUserId] = useState<string>('');
-  const [replacementMode, setReplacementMode] = useState<'member' | 'guest'>('member');
+  const [replacementMode, setReplacementMode] = useState<'member' | 'guest' | 'empty-slot' | 'clear' | 'absent'>('member');
   const [replacementUserId, setReplacementUserId] = useState<string>('');
   const [guestName, setGuestName] = useState<string>('');
   const [guestGender, setGuestGender] = useState<'M' | 'F'>('F');
@@ -25,7 +25,12 @@ export function ReplacementManager({
     : [];
 
   const handleApplyReplacement = () => {
-    if (!selectedSchedule || !absentUserId) {
+    if (!selectedSchedule) {
+      toast.error('경기 일정을 선택해주세요');
+      return;
+    }
+
+    if ((replacementMode === 'empty-slot' || replacementMode === 'absent' || replacementMode === 'clear') && !absentUserId) {
       toast.error('불참자를 선택해주세요');
       return;
     }
@@ -40,7 +45,7 @@ export function ReplacementManager({
         replacementUserId,
         mode: 'member',
       });
-    } else {
+    } else if (replacementMode === 'guest') {
       if (!guestName.trim()) {
         toast.error('게스트 이름을 입력해주세요');
         return;
@@ -51,6 +56,12 @@ export function ReplacementManager({
         guestName: guestName.trim(),
         guestGender,
         mode: 'guest',
+      });
+    } else {
+      onApplyReplacement({
+        absentUserId,
+        replacementUserId: null,
+        mode: replacementMode,
       });
     }
 
@@ -93,8 +104,7 @@ export function ReplacementManager({
             onChange={e => setAbsentUserId(e.target.value)}
             autoComplete="off"
           >
-            <option value="">불참자 선택</option>
-            <option value="empty-slot">빈자리(미응답/미정)</option>
+            <option value="">불참자 선택 (미선택 시 참석 추가)</option>
             {scheduleParticipants.map((id: string) => {
               const user = getUserById(id);
               return user ? (
@@ -121,6 +131,27 @@ export function ReplacementManager({
             >
               게스트
             </button>
+            <button
+              className="px-4 py-1.5 rounded-lg text-sm font-medium border transition-colors"
+              style={replacementMode === 'empty-slot' ? { backgroundColor: '#030213', color: '#fff', borderColor: '#030213' } : { backgroundColor: '#fff', color: '#374151', borderColor: '#D1D5DB' }}
+              onClick={() => setReplacementMode('empty-slot')}
+            >
+              빈 시트
+            </button>
+            <button
+              className="px-4 py-1.5 rounded-lg text-sm font-medium border transition-colors"
+              style={replacementMode === 'absent' ? { backgroundColor: '#030213', color: '#fff', borderColor: '#030213' } : { backgroundColor: '#fff', color: '#374151', borderColor: '#D1D5DB' }}
+              onClick={() => setReplacementMode('absent')}
+            >
+              불참 처리
+            </button>
+            <button
+              className="px-4 py-1.5 rounded-lg text-sm font-medium border transition-colors"
+              style={replacementMode === 'clear' ? { backgroundColor: '#030213', color: '#fff', borderColor: '#030213' } : { backgroundColor: '#fff', color: '#374151', borderColor: '#D1D5DB' }}
+              onClick={() => setReplacementMode('clear')}
+            >
+              출석 삭제
+            </button>
           </div>
         </div>
 
@@ -139,7 +170,7 @@ export function ReplacementManager({
                 <option key={user.id} value={user.id}>{user.name}</option>
               ))}
             </select>
-          ) : (
+          ) : replacementMode === 'guest' ? (
             <>
               <input
                 id="guestName"
@@ -163,13 +194,19 @@ export function ReplacementManager({
                 <option value="M">남성</option>
               </select>
             </>
+          ) : (
+            <div className={`text-xs text-gray-500 ${isMobilePreview ? 'w-full' : 'min-w-[220px]'}`}>
+              {replacementMode === 'empty-slot' && '대참자 없이 빈 자리로 비웁니다. 기존 멤버는 불참으로 남습니다.'}
+              {replacementMode === 'absent' && '기존 참석 기록을 불참 상태로 변경합니다.'}
+              {replacementMode === 'clear' && '기존 참석 요청 자체를 삭제하여 미응답 상태로 되돌립니다.'}
+            </div>
           )}
           <Button
             onClick={handleApplyReplacement}
             style={{ backgroundColor: '#FFC1CC', color: '#030213' }}
             className={isMobilePreview ? 'w-full' : ''}
           >
-            대참 반영
+            참석자 편집 반영
           </Button>
         </div>
       </CardContent>

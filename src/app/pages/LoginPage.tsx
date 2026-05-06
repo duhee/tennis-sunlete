@@ -35,8 +35,8 @@ export function LoginPage() {
 
   const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log('[LoginPage] handleLogin called', { username, phoneLast4 });
-    console.log('[LoginPage] users from context', users, 'hydrated:', hydrated);
+    // console.log('[LoginPage] handleLogin called', { username, phoneLast4 });
+    // console.log('[LoginPage] users from context', users, 'hydrated:', hydrated);
     setError('');
 
     if (!username || !phoneLast4) {
@@ -56,7 +56,7 @@ export function LoginPage() {
     }
 
     const user = findUserByFlexibleName(normalized);
-    console.log('[LoginPage] user found', user);
+    // console.log('[LoginPage] user found', user);
 
     if (!user || user.isGuest || user.id.startsWith('guest-')) {
       setError('등록된 회원만 로그인할 수 있습니다');
@@ -81,7 +81,7 @@ export function LoginPage() {
     }
 
     const success = login(user, phoneLast4);
-    console.log('[LoginPage] login result', success);
+    // console.log('[LoginPage] login result', success);
     if (!success) {
       setError('로그인 처리 중 오류가 발생했습니다');
       return;

@@ -89,7 +89,7 @@ export interface ReplacementParams {
   replacementUserId: string | null;
   guestName?: string;
   guestGender?: 'M' | 'F';
-  mode: 'member' | 'guest';
+  mode: 'member' | 'guest' | 'empty-slot' | 'clear' | 'absent';
 }
 
 // AttendanceRecordsView Props
