@@ -35,8 +35,8 @@ export function LoginPage() {
 
   const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // console.log('[LoginPage] handleLogin called', { username, phoneLast4 });
-    // console.log('[LoginPage] users from context', users, 'hydrated:', hydrated);
+    // console.log('[LoginPage] handleLogin called', { username, phoneLast4, usersCount: users.length, hydrated });
+    // console.log('[LoginPage] users from context', users.map(u => ({ name: u.name, phoneLast4: u.phoneLast4, isGuest: u.isGuest, isWithdrawn: u.isWithdrawn, id: u.id })));
     setError('');
 
     if (!username || !phoneLast4) {
@@ -56,7 +56,7 @@ export function LoginPage() {
     }
 
     const user = findUserByFlexibleName(normalized);
-    // console.log('[LoginPage] user found', user);
+    // console.log('[LoginPage] findUserByFlexibleName for \"' + normalized + '\"', { user: user ? { name: user.name, phoneLast4: user.phoneLast4, id: user.id, isGuest: user.isGuest, isWithdrawn: user.isWithdrawn } : null });
 
     if (!user || user.isGuest || user.id.startsWith('guest-')) {
       setError('등록된 회원만 로그인할 수 있습니다');
@@ -81,7 +81,7 @@ export function LoginPage() {
     }
 
     const success = login(user, phoneLast4);
-    // console.log('[LoginPage] login result', success);
+    // console.log('[LoginPage] login result', { success, userName: user?.name, inputPhoneLast4: phoneLast4, storedPhoneLast4: user?.phoneLast4 });
     if (!success) {
       setError('로그인 처리 중 오류가 발생했습니다');
       return;

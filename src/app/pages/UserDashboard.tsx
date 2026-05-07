@@ -654,7 +654,8 @@ export function UserDashboard() {
                 return !(rate >= 50 || rate >= top30Cutoff);
               };
               const getAttendanceNameStyle = (id: string, options?: { isGuest?: boolean }) => {
-                if (isPriorityMember(id)) {
+                // 게스트는 우선순위 처리 안 함
+                if (!options?.isGuest && isPriorityMember(id)) {
                   return {
                     backgroundColor: '#FFF8FA',
                     color: '#030213',
