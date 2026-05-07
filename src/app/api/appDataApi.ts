@@ -277,3 +277,38 @@ export async function saveAppData(data: AppData): Promise<void> {
 export function isAppsScriptMode() {
   return false;
 }
+
+export async function reportFailedLogin(details: {
+  inputName: string;
+  inputPhoneLast4: string;
+  reason: string;
+  foundInDb: boolean;
+  isGuest?: boolean;
+  isWithdrawn?: boolean;
+  userAgent?: string;
+  timestamp?: string;
+}): Promise<void> {
+  try {
+    const payload = {
+      input_name: details.inputName,
+      input_phone_last_4: details.inputPhoneLast4,
+      reason: details.reason,
+      found_in_db: details.foundInDb,
+      is_guest: details.isGuest ?? false,
+      is_withdrawn: details.isWithdrawn ?? false,
+      user_agent: details.userAgent ?? navigator.userAgent,
+      attempted_at: details.timestamp ?? new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from('login_attempts').insert([payload]);
+    
+    if (error) {
+      // console.warn('[reportFailedLogin] 로그인 시도 기록 실패 (테이블 없을 수 있음):', error.message);
+      return;
+    }
+
+    // console.log('[reportFailedLogin] 로그인 시도 기록 완료');
+  } catch (err) {
+    // console.error('[reportFailedLogin] 예외 발생:', err);
+  }
+}

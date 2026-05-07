@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { useAppData } from '../context/AppDataContext.js';
+import { reportFailedLogin } from '../api/appDataApi.js';
 import { Card, CardContent, CardHeader } from '../components/ui/card.js';
 import { Button } from '../components/ui/button.js';
 import { Input } from '../components/ui/input.js';
@@ -33,7 +34,7 @@ export function LoginPage() {
     });
   };
 
-  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     // console.log('[LoginPage] handleLogin called', { username, phoneLast4, usersCount: users.length, hydrated });
     // console.log('[LoginPage] users from context', users.map(u => ({ name: u.name, phoneLast4: u.phoneLast4, isGuest: u.isGuest, isWithdrawn: u.isWithdrawn, id: u.id })));
@@ -56,19 +57,41 @@ export function LoginPage() {
     }
 
     const user = findUserByFlexibleName(normalized);
-    // console.log('[LoginPage] findUserByFlexibleName for \"' + normalized + '\"', { user: user ? { name: user.name, phoneLast4: user.phoneLast4, id: user.id, isGuest: user.isGuest, isWithdrawn: user.isWithdrawn } : null });
+    // console.log('[LoginPage] findUserByFlexibleName for "' + normalized + '"', { 
+    //   found: !!user,
+    //   name: user?.name,
+    //   id: user?.id,
+    //   isGuest: user?.isGuest,
+    //   isWithdrawn: user?.isWithdrawn,
+    //   idStartsWithGuest: user?.id?.startsWith('guest-'),
+    // });
 
     if (!user || user.isGuest || user.id.startsWith('guest-')) {
+      const reason = !user ? '회원 없음' : user.isGuest ? '게스트 플래그' : 'id가 guest-로 시작';
+      // console.log('[LoginPage] 등록된 회원만 로그인 가능 - 실패 사유: ' + reason);
+      await reportFailedLogin({
+        inputName: normalized,
+        inputPhoneLast4: phoneLast4,
+        reason: reason,
+        foundInDb: !!user,
+        isGuest: user?.isGuest ?? false,
+      });
       setError('등록된 회원만 로그인할 수 있습니다');
       return;
     }
 
     if (user.isWithdrawn) {
+      // console.log('[LoginPage] 탈퇴 처리된 회원');
+      await reportFailedLogin({
+        inputName: normalized,
+        inputPhoneLast4: phoneLast4,
+        reason: '탈퇴 처리된 회원',
+        foundInDb: true,
+        isWithdrawn: true,
+      });
       setError('탈퇴 처리된 회원은 로그인할 수 없습니다');
       return;
     }
-
-
 
     if (!user.phoneLast4) {
       setError('회원 비밀번호(휴대폰 뒷자리)가 등록되지 않았습니다. 관리자에게 문의해주세요');
@@ -76,6 +99,13 @@ export function LoginPage() {
     }
 
     if (phoneLast4 !== user.phoneLast4) {
+      // console.log('[LoginPage] 휴대폰 뒷자리 불일치');
+      await reportFailedLogin({
+        inputName: normalized,
+        inputPhoneLast4: phoneLast4,
+        reason: '비밀번호 불일치',
+        foundInDb: true,
+      });
       setError('휴대폰 뒷자리 4자리가 일치하지 않습니다');
       return;
     }
