@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useAppData } from '../context/AppDataContext.js';
-import { getScheduleDrawCutoff } from '../data/mockData.js';
+import { reportSharedBracketView } from '../api/appDataApi.js';
 import { Card, CardContent, CardHeader } from '../components/ui/card.js';
 import { Badge } from '../components/ui/badge.js';
 
@@ -9,9 +9,11 @@ export function SharedBracket() {
   const { doublesMatches, getUserById } = useAppData();
   const [searchParams] = useSearchParams();
   const { bracketId } = useParams<{ bracketId?: string }>();
+  const lastTrackedViewKeyRef = useRef<string | null>(null);
 
 
   const highlightPlayer = searchParams.get('player');
+  const hasExplicitShareDate = Boolean(searchParams.get('date') ?? bracketId);
 
   // 오늘 날짜 (로컬 기준)
   const today = new Date();
@@ -33,32 +35,49 @@ export function SharedBracket() {
   // date 파라미터가 있으면 사용, 없으면 오늘 이후 가장 가까운 대진 날짜 사용
   let shareDate = searchParams.get('date') ?? bracketId;
   if (!shareDate) {
-    // 오늘 날짜가 drawCutoff(경기 다음날 월요일 11시) 이전이면 가장 최근 경기, 이후면 다음 경기
     const now = new Date();
+    const todayTs = today.getTime();
+    const upcomingTs = confirmedDates.find((ts) => ts >= todayTs);
+
     let selectedTs: number | undefined;
-    for (let i = 0; i < confirmedDates.length; i++) {
-      const matchTs = confirmedDates[i];
-      const matchDate = new Date(matchTs);
-      // drawCutoff: 경기 다음날 월요일 11시
-      let drawCutoff = getScheduleDrawCutoff(`${matchDate.getFullYear()}-${String(matchDate.getMonth() + 1).padStart(2, '0')}-${String(matchDate.getDate()).padStart(2, '0')}`);
-      // drawCutoff는 경기 6일 전 월요일 11시이므로, 경기 다음날 월요일 11시로 맞추기 위해 date+7일
-      drawCutoff.setDate(drawCutoff.getDate() + 7);
-      // drawCutoff는 이미 KST 기준이므로 추가 보정 불필요
-      if (now < drawCutoff) {
-        // 아직 cutoff 전이면 이 경기를 보여주고 종료
-        selectedTs = matchTs;
-        break;
-      } else {
-        // drawCutoff를 지난 경기 → 다음 경기로 넘어감
-        selectedTs = confirmedDates[i + 1];
-        break;
+    if (upcomingTs) {
+      selectedTs = upcomingTs;
+    } else {
+      const latestTs = confirmedDates[confirmedDates.length - 1];
+      if (latestTs) {
+        const latestMatchDate = new Date(latestTs);
+        const expiresAt = new Date(latestMatchDate);
+        expiresAt.setDate(expiresAt.getDate() + 1);
+        expiresAt.setHours(11, 0, 0, 0);
+
+        // 경기 다음날(월요일) 11시 전까지만 지난 주 대진 노출
+        if (now < expiresAt) {
+          selectedTs = latestTs;
+        }
       }
     }
+
     if (selectedTs) {
       const d = new Date(selectedTs);
       shareDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
   }
+
+  const showPreparingNotice = !hasExplicitShareDate && !shareDate;
+
+  useEffect(() => {
+    const viewKey = `${bracketId ?? ''}|${shareDate ?? ''}|${highlightPlayer ?? ''}`;
+    if (lastTrackedViewKeyRef.current === viewKey) {
+      return;
+    }
+
+    lastTrackedViewKeyRef.current = viewKey;
+    void reportSharedBracketView({
+      bracketId,
+      shareDate: shareDate ?? undefined,
+      highlightPlayer: highlightPlayer ?? undefined,
+    });
+  }, [bracketId, shareDate, highlightPlayer]);
 
   // 다양한 date 포맷을 지원하는 날짜 비교 함수
   const isSameDay = (dateStr1: string, dateStr2: string) => {
@@ -134,7 +153,14 @@ export function SharedBracket() {
             {confirmedMatches.length === 0 ? (
               <Card className="bg-[#F8F9FA] border-none shadow-none">
                 <CardContent className="py-8 text-center">
-                  <p className="text-sm font-medium text-gray-700">진행 중인 대진표가 없습니다</p>
+                  {showPreparingNotice ? (
+                    <>
+                      <p className="text-sm font-medium text-gray-700">대진 준비중입니다</p>
+                      <p className="mt-2 text-xs text-gray-500">월요일 오전 11시 이후 이전 주 대진표는 자동으로 내려갑니다.</p>
+                    </>
+                  ) : (
+                    <p className="text-sm font-medium text-gray-700">진행 중인 대진표가 없습니다</p>
+                  )}
                 </CardContent>
               </Card>
             ) : (

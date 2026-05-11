@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { useAppData } from '../context/AppDataContext.js';
-import { reportFailedLogin } from '../api/appDataApi.js';
+import { reportFailedLogin, reportLoginAttempt } from '../api/appDataApi.js';
 import { Card, CardContent, CardHeader } from '../components/ui/card.js';
 import { Button } from '../components/ui/button.js';
 import { Input } from '../components/ui/input.js';
@@ -94,6 +94,12 @@ export function LoginPage() {
     }
 
     if (!user.phoneLast4) {
+      await reportFailedLogin({
+        inputName: normalized,
+        inputPhoneLast4: phoneLast4,
+        reason: '회원 비밀번호 미등록',
+        foundInDb: true,
+      });
       setError('회원 비밀번호(휴대폰 뒷자리)가 등록되지 않았습니다. 관리자에게 문의해주세요');
       return;
     }
@@ -113,9 +119,24 @@ export function LoginPage() {
     const success = login(user, phoneLast4);
     // console.log('[LoginPage] login result', { success, userName: user?.name, inputPhoneLast4: phoneLast4, storedPhoneLast4: user?.phoneLast4 });
     if (!success) {
+      await reportFailedLogin({
+        inputName: normalized,
+        inputPhoneLast4: phoneLast4,
+        reason: '인증 처리 실패',
+        foundInDb: true,
+      });
       setError('로그인 처리 중 오류가 발생했습니다');
       return;
     }
+
+    await reportLoginAttempt({
+      inputName: normalized,
+      inputPhoneLast4: phoneLast4,
+      reason: '로그인 성공',
+      foundInDb: true,
+      isGuest: false,
+      isWithdrawn: false,
+    });
 
     navigate('/');
   };

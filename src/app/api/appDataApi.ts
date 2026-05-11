@@ -278,7 +278,7 @@ export function isAppsScriptMode() {
   return false;
 }
 
-export async function reportFailedLogin(details: {
+export async function reportLoginAttempt(details: {
   inputName: string;
   inputPhoneLast4: string;
   reason: string;
@@ -310,5 +310,45 @@ export async function reportFailedLogin(details: {
     // console.log('[reportFailedLogin] 로그인 시도 기록 완료');
   } catch (err) {
     // console.error('[reportFailedLogin] 예외 발생:', err);
+  }
+}
+
+export async function reportFailedLogin(details: {
+  inputName: string;
+  inputPhoneLast4: string;
+  reason: string;
+  foundInDb: boolean;
+  isGuest?: boolean;
+  isWithdrawn?: boolean;
+  userAgent?: string;
+  timestamp?: string;
+}): Promise<void> {
+  await reportLoginAttempt(details);
+}
+
+export async function reportSharedBracketView(details: {
+  bracketId?: string;
+  shareDate?: string;
+  highlightPlayer?: string;
+  referrer?: string;
+  userAgent?: string;
+  viewedAt?: string;
+}): Promise<void> {
+  try {
+    const payload = {
+      bracket_id: details.bracketId ?? null,
+      share_date: details.shareDate ?? null,
+      highlight_player: details.highlightPlayer ?? null,
+      referrer: details.referrer ?? (typeof document !== 'undefined' ? document.referrer : null),
+      user_agent: details.userAgent ?? (typeof navigator !== 'undefined' ? navigator.userAgent : null),
+      viewed_at: details.viewedAt ?? new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from('shared_bracket_views').insert([payload]);
+    if (error) {
+      return;
+    }
+  } catch (_err) {
+    return;
   }
 }

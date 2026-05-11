@@ -217,7 +217,7 @@ export function UserDashboard() {
     return map;
   }, [seasonMembers, progressedSchedules]);
 
-  const confirmedMatches = useMemo(() => {
+  const confirmedMatchState = useMemo(() => {
     const now = effectiveNow;
     const allConfirmed = doublesMatches.filter((m: any) => m.isConfirmed && m.date);
 
@@ -230,35 +230,53 @@ export function UserDashboard() {
       }))
     ).sort((a, b) => (a as number) - (b as number)) as number[];
 
-    // cutoff 기준으로 표시할 날짜 결정
+    // 기본값은 오늘 이후 가장 가까운 확정 대진,
+    // 없으면 최신 과거 대진을 경기 다음날(월요일) 11시 전까지만 노출
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayTs = todayStart.getTime();
+
+    const upcomingDate = uniqueDates.find((ts) => ts >= todayTs);
     let activeDate: number | undefined;
-    for (let i = 0; i < uniqueDates.length; i++) {
-      const matchDate = new Date(uniqueDates[i]);
-      const dateStr = `${matchDate.getFullYear()}-${String(matchDate.getMonth() + 1).padStart(2, '0')}-${String(matchDate.getDate()).padStart(2, '0')}`;
-      const drawCutoff = getScheduleDrawCutoff(dateStr);
-      drawCutoff.setDate(drawCutoff.getDate() + 7);
-      if (now < drawCutoff) {
-        activeDate = uniqueDates[i];
-        break;
-      } else {
-        activeDate = uniqueDates[i + 1];
-        break;
+    let showPreparingNotice = false;
+
+    if (upcomingDate) {
+      activeDate = upcomingDate;
+    } else {
+      const latestPastDate = uniqueDates[uniqueDates.length - 1];
+      if (latestPastDate) {
+        const matchDate = new Date(latestPastDate);
+        const dateStr = `${matchDate.getFullYear()}-${String(matchDate.getMonth() + 1).padStart(2, '0')}-${String(matchDate.getDate()).padStart(2, '0')}`;
+        const drawCutoff = getScheduleDrawCutoff(dateStr);
+        drawCutoff.setDate(drawCutoff.getDate() + 7);
+
+        if (now < drawCutoff) {
+          activeDate = latestPastDate;
+        } else {
+          showPreparingNotice = true;
+        }
       }
     }
 
-    if (!activeDate) return [];
+    if (!activeDate) {
+      return { matches: [], showPreparingNotice };
+    }
 
     const activeDateStr = (() => {
       const d = new Date(activeDate);
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     })();
 
-    return allConfirmed.filter((m: any) => {
+    const matches = allConfirmed.filter((m: any) => {
       const d = new Date(m.date);
       const s = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       return s === activeDateStr;
     });
+
+    return { matches, showPreparingNotice: false };
   }, [doublesMatches, effectiveNow]);
+  const confirmedMatches = confirmedMatchState.matches;
+  const showBracketPreparingNotice = confirmedMatchState.showPreparingNotice;
   const confirmedDate = confirmedMatches[0]?.date;
   const upcomingSchedules = useMemo(
     () => {
@@ -445,8 +463,8 @@ export function UserDashboard() {
             {confirmedMatches.length === 0 && (
               <Card className="mb-6" style={{ backgroundColor: '#F8F9FA' }}>
                 <CardContent className="py-8 text-center">
-                  <p className="text-sm font-medium text-gray-700">아직 확정된 대진표가 없습니다</p>
-                  <p className="text-xs text-gray-500 mt-2">관리 페이지에서 대진표가 확정되면 여기서 바로 확인할 수 있습니다.</p>
+                  <p className="text-sm font-medium text-gray-700">{showBracketPreparingNotice ? '대진 준비중입니다' : '아직 확정된 대진표가 없습니다'}</p>
+                  <p className="text-xs text-gray-500 mt-2">{showBracketPreparingNotice ? '월요일 오전 11시 이후 이전 주 대진표는 자동으로 내려갑니다.' : '관리 페이지에서 대진표가 확정되면 여기서 바로 확인할 수 있습니다.'}</p>
                 </CardContent>
               </Card>
             )}
