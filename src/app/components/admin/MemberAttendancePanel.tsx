@@ -1,9 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronRight, TrendingDown } from 'lucide-react';
-import { toast } from 'sonner';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
-import { Badge } from '../ui/badge.js';
 import { Button } from '../ui/button.js';
 import {
   Table,
@@ -88,18 +86,6 @@ export function MemberAttendancePanel({
     return Math.round((attended / (totalProgressedSessions || 1)) * 100);
   };
 
-  const sortedProgressedRates = [...usersToShow]
-    .map(user => getProgressedAttendanceRate(user.id))
-    .sort((a, b) => b - a);
-
-  const top30Count = Math.max(1, Math.ceil(usersToShow.length * 0.3));
-  const top30CutoffRate = sortedProgressedRates[top30Count - 1] ?? 0;
-
-  const isNormalStatus = (userId: string): boolean => {
-    const rate = getProgressedAttendanceRate(userId);
-    return rate >= 50 || rate >= top30CutoffRate;
-  };
-
   return (
     <Card>
       <CardHeader>
@@ -166,14 +152,12 @@ export function MemberAttendancePanel({
                 totals = { ...totals, attended_sessions: dynamicAttended, draws: totals.draws ?? 0 };
 
                 const attendanceRateProgressed = getProgressedAttendanceRate(user.id);
-                const isNormal = isNormalStatus(user.id);
                 const totalGames = (totals.wins ?? 0) + (totals.losses ?? 0) + (totals.draws ?? 0);
 
                 return (
                   <div
                     key={user.id}
                     className="rounded-lg border border-gray-200 bg-white px-3 py-3 space-y-2"
-                    style={!isNormal ? { backgroundColor: '#FFF5F7' } : {}}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -182,11 +166,6 @@ export function MemberAttendancePanel({
                         </p>
                         <p className="text-xs text-gray-500">출석 {totals.attended_sessions}</p>
                       </div>
-                      {isNormal ? (
-                        <Badge style={{ backgroundColor: '#FFC1CC', color: '#030213' }}>정상</Badge>
-                      ) : (
-                        <Badge style={{ backgroundColor: '#FF4D4D', color: 'white' }}>우선순위</Badge>
-                      )}
                     </div>
 
                     <div className="flex items-center justify-between text-sm">
@@ -219,7 +198,6 @@ export function MemberAttendancePanel({
                     <TableHead>전적</TableHead>
                     <TableHead>승률 (WR)</TableHead>
                     <TableHead>점수지표</TableHead>
-                    <TableHead>상태</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -246,11 +224,10 @@ export function MemberAttendancePanel({
                     totals = { ...totals, attended_sessions: dynamicAttended, draws: totals.draws ?? 0 };
 
                     const attendanceRateProgressed = getProgressedAttendanceRate(user.id);
-                    const isNormal = isNormalStatus(user.id);
                     const totalGames = (totals.wins ?? 0) + (totals.losses ?? 0) + (totals.draws ?? 0);
 
                     return (
-                      <TableRow key={user.id} style={!isNormal ? { backgroundColor: '#FFF5F7' } : {}}>
+                      <TableRow key={user.id}>
                         <TableCell>{index + 1}</TableCell>
                         <TableCell className="font-medium">
                           <Link to={`/profile/${user.id}`} className="hover:underline">
@@ -258,12 +235,7 @@ export function MemberAttendancePanel({
                           </Link>
                         </TableCell>
                         <TableCell>{totals.attended_sessions}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className={!isNormal ? 'font-bold' : ''}>{attendanceRateProgressed}%</span>
-                            {!isNormal && <TrendingDown className="w-4 h-4" style={{ color: '#FF4D4D' }} />}
-                          </div>
-                        </TableCell>
+                        <TableCell>{attendanceRateProgressed}%</TableCell>
                         <TableCell>
                           {totalGames}전 {totals.wins}승 {totals.losses}패 {totals.draws ?? 0}무
                         </TableCell>
@@ -273,13 +245,6 @@ export function MemberAttendancePanel({
                             <div>득실차 (GD) {formatSigned(pointMetrics.gameDifference)}</div>
                             <div>게임 승률 (GWP) {pointMetrics.gameWinRate.toFixed(1)}%</div>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          {isNormal ? (
-                            <Badge style={{ backgroundColor: '#FFC1CC', color: '#030213' }}>정상</Badge>
-                          ) : (
-                            <Badge style={{ backgroundColor: '#FF4D4D', color: 'white' }}>우선순위</Badge>
-                          )}
                         </TableCell>
                       </TableRow>
                     );

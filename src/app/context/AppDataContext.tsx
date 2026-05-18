@@ -11,6 +11,7 @@ import {
 import type { User, WeeklyMatchSchedule, DoublesMatch, SeasonStats } from '../data/mockData.js';
 
 import { fetchAppData, saveAppData } from '../api/appDataApi.js';
+import { supabase } from '../api/supabaseClient.js';
 
 type AppData = {
   users: User[];
@@ -49,6 +50,7 @@ interface AppDataContextType {
   confirmBracketForSchedule: (scheduleId: string, date: string, bracket: GeneratedMatchInput[]) => void;
   recordMatchScore: (matchId: string, scoreA: number, scoreB: number) => void;
   addSchedulesForSeason: (seasonCode: string, totalSessions: number) => void;
+  refetchAppData: () => Promise<void>;
   hydrated: boolean;
 }
 
@@ -212,6 +214,55 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       isMounted = false;
     };
   }, []);
+
+  // Supabase Realtime subscription: 다양한 테이블 변경 감지 (스코어, 출석, 스케줄)
+  useEffect(() => {
+    if (!hydrated) return;
+
+    const channel = supabase
+      .channel('app-data-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE 모두 감지
+          schema: 'public',
+          table: 'doubles_matches',
+        },
+        async (payload: any) => {
+          console.log('📊 Score change detected:', payload);
+          await refetchAppData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'attendance_requests',
+        },
+        async (payload: any) => {
+          console.log('👤 Attendance request changed:', payload);
+          await refetchAppData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'schedules',
+        },
+        async (payload: any) => {
+          console.log('📅 Schedule changed:', payload);
+          await refetchAppData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [hydrated]);
 
   // attendance_requests 변경 시 attended_sessions 자동 재계산
   useEffect(() => {
@@ -483,6 +534,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const refetchAppData = async (): Promise<void> => {
+    try {
+      const serverData = await fetchAppData();
+      if (serverData) {
+        setData({
+          ...serverData,
+          users: recalculateUsersFromMatchResults(serverData.users, serverData.doublesMatches),
+        });
+      }
+    } catch (error) {
+      console.error('Failed to refetch app data:', error);
+    }
+  };
+
   const recalculateAllAttendedSessions = React.useCallback((): void => {
     setData((prev: PersistedData) => {
       const attendanceMap: Record<string, Record<string, number>> = {};
@@ -531,6 +596,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       confirmBracketForSchedule,
       recordMatchScore,
       addSchedulesForSeason,
+      refetchAppData,
       hydrated,
     }),
     [data, hydrated]

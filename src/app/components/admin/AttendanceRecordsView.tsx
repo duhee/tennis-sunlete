@@ -38,10 +38,10 @@ export function AttendanceRecordsView({
             참석 기록 조회
             <button
               type="button"
-              aria-label="우선순위 설명"
+              aria-label="배정 기준 설명"
               onClick={() =>
-                toast.info('우선순위 기준', {
-                  description: '출석률 + 버튼 누른 시간',
+                toast.info('배정 기준', {
+                  description: '참석 신청 시각 기준 선착순',
                 })
               }
               className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 text-xs text-gray-600 hover:bg-gray-100"
@@ -64,10 +64,10 @@ export function AttendanceRecordsView({
           참석 기록 조회
           <button
             type="button"
-            aria-label="우선순위 설명"
+            aria-label="배정 기준 설명"
             onClick={() =>
-              toast.info('우선순위 기준', {
-                description: '출석률 + 버튼 누른 시간',
+              toast.info('배정 기준', {
+                description: '참석 신청 시각 기준 선착순',
               })
             }
             className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 text-xs text-gray-600 hover:bg-gray-100"
@@ -102,7 +102,7 @@ export function AttendanceRecordsView({
                     </p>
                     {!row.userId.startsWith('guest-') && (
                       <p className="mt-1 text-xs text-gray-400">
-                        출석률 {row.attendanceRate}% · 요청 {new Date(row.requestedAt).toLocaleString('ko-KR', {
+                        요청 {new Date(row.requestedAt).toLocaleString('ko-KR', {
                           month: '2-digit',
                           day: '2-digit',
                           hour: '2-digit',
@@ -130,10 +130,9 @@ export function AttendanceRecordsView({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-center">우선순위</TableHead>
+                  <TableHead className="text-center">신청순번</TableHead>
                   <TableHead className="text-center">이름</TableHead>
                   <TableHead className="text-center">성별</TableHead>
-                  <TableHead className="text-center">출석률</TableHead>
                   <TableHead className="text-center">요청 시각</TableHead>
                   <TableHead className="text-center">배정</TableHead>
                 </TableRow>
@@ -149,9 +148,6 @@ export function AttendanceRecordsView({
                     <TableCell className="text-center">{index + 1}</TableCell>
                     <TableCell className="text-center">{row.name}</TableCell>
                     <TableCell className="text-center text-s">{row.gender === 'M' ? '남' : '여'}</TableCell>
-                    <TableCell className="text-center">
-                      {row.userId.startsWith('guest-') ? '-' : `${row.attendanceRate}%`}
-                    </TableCell>
                     <TableCell className="text-center">
                       {row.userId.startsWith('guest-') ? '-' : new Date(row.requestedAt).toLocaleString('ko-KR', {
                         month: '2-digit',

@@ -74,20 +74,6 @@ export function UserDashboard() {
     const [showSeasonAttendanceModal, setShowSeasonAttendanceModal] = useState(false);
   const { debugNow, effectiveNow } = useDebugNow();
 
-  React.useEffect(() => {
-    if (typeof window === 'undefined' || document.getElementById('priority-fade-keyframes')) return;
-
-    const style = document.createElement('style');
-    style.id = 'priority-fade-keyframes';
-    style.innerHTML = `
-      @keyframes priorityFadeBg {
-        0% { background-color: #FFF8FA; }
-        100% { background-color: #FFE4EC; }
-      }
-    `;
-    document.head.appendChild(style);
-  }, []);
-
     // 팝업 중복 방지용 고유 ID
     const TOAST_ID = 'attendance-info-toast';
     const { toasts } = useSonner();
@@ -116,10 +102,9 @@ export function UserDashboard() {
           <div className="text-xs mb-2" style={{ color: '#D77B9A' }}>새 주차의 출석 카드가 열립니다.<br/>원활한 게스트 모집을 위해 일정 확정을 미리 해주세요.</div>
           <div className="font-semibold mt-2 mb-1">출석 마감 및 대진 대기</div>
           <div className="text-xs" style={{ color: '#D77B9A' }}>다가오는 주차의 출석이 마감되어 참/불 변경이 불가합니다.<br/>마감 후 일정 변경은 마스터(장두희)에게 문의해 주세요.</div>
-          <div className="font-semibold mt-2 mb-1">출석 우선순위</div>
+          <div className="font-semibold mt-2 mb-1">참가자 배정 기준</div>
           <div className="text-xs" style={{ color: '#D77B9A' }}>
-            출석률 50% 이하, 상대적 하위 30%는 '우선순위'로 분류됩니다.<br/>
-            출석 동시 신청 시 우선순위 멤버에게 자리가 먼저 배정됩니다.<br/>
+            참가자 배정은 참석 신청 시각 기준 선착순으로 진행됩니다.<br/>
           </div>
         </div>,
         {
@@ -188,13 +173,6 @@ export function UserDashboard() {
   const getProgressedAttendanceRate = (userId: string): number => {
     const attended = progressedSchedules.filter(s => Array.isArray(s.participants) && s.participants.includes(userId)).length;
     return Math.round((attended / (totalProgressedSessions || 1)) * 100);
-  };
-  const progressedRates = seasonMembers.map(m => getProgressedAttendanceRate(m.id)).sort((a, b) => b - a);
-  const top30Count = Math.max(1, Math.ceil(seasonMembers.length * 0.3));
-  const top30Cutoff = progressedRates[top30Count - 1] ?? 0;
-  const isNormalStatus = (userId: string): boolean => {
-    const rate = getProgressedAttendanceRate(userId);
-    return rate >= 50 || rate >= top30Cutoff;
   };
   // 멤버별 참석/불참/미응답 집계 (진행된 회차 기준)
   const memberAttendanceMap = useMemo(() => {
@@ -654,34 +632,7 @@ export function UserDashboard() {
               // 시즌 멤버 여부
               const isSeasonMember = !!userId && seasonMembers.some(m => m.id === userId);
 
-              // 진행된 회차 기준 우선순위 판정
-              const progressedSch = schedules.filter(s => {
-                const sc = getScheduleSeasonCode(s);
-                if (scheduleSeasonCode && sc !== scheduleSeasonCode) return false;
-                return Array.isArray(s.participants) && s.participants.length > 0;
-              });
-              const totalProg = progressedSch.length;
-              const getProgRate = (uid: string) => {
-                const attended = progressedSch.filter(s => Array.isArray(s.participants) && s.participants.includes(uid)).length;
-                return Math.round((attended / (totalProg || 1)) * 100);
-              };
-              const progRates = seasonMembers.map((m: any) => getProgRate(m.id)).sort((a: number, b: number) => b - a);
-              const top30Cutoff = progRates[Math.max(1, Math.ceil(seasonMembers.length * 0.3)) - 1] ?? 0;
-              const isPriorityMember = (uid: string) => {
-                const rate = getProgRate(uid);
-                return !(rate >= 50 || rate >= top30Cutoff);
-              };
-              const getAttendanceNameStyle = (id: string, options?: { isGuest?: boolean }) => {
-                // 게스트는 우선순위 처리 안 함
-                if (!options?.isGuest && isPriorityMember(id)) {
-                  return {
-                    backgroundColor: '#FFF8FA',
-                    color: '#030213',
-                    outline: '0.5px solid #E5E7EB',
-                    animation: 'priorityFadeBg 1.4s ease-in-out infinite alternate',
-                  };
-                }
-
+              const getAttendanceNameStyle = (id: string) => {
                 if (isMe(id)) {
                   return {
                     backgroundColor: '#030213',
@@ -830,7 +781,7 @@ export function UserDashboard() {
                             <span
                               key={player!.id}
                               className="px-2 py-1 bg-white rounded-md text-xs font-medium text-[#030213]"
-                              style={getAttendanceNameStyle(player!.id, { isGuest: true })}
+                              style={getAttendanceNameStyle(player!.id)}
                             >
                               {player!.name}
                             </span>
@@ -958,7 +909,6 @@ export function UserDashboard() {
                           <th className="px-2 py-1 border">출석</th>
                           <th className="px-2 py-1 border">출석률</th>
                           <th className="px-2 py-1 border">승률 (WR)</th>
-                          <th className="px-2 py-1 border">상태</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -966,7 +916,6 @@ export function UserDashboard() {
                           .map(member => ({
                             member,
                             rate: getProgressedAttendanceRate(member.id),
-                            isNormal: isNormalStatus(member.id),
                             att: memberAttendanceMap[member.id] || { attended: 0, absent: 0, noResponse: 0, total: 0 },
                             winRate: getWinRate(member, currentSeasonCode),
                           }))
@@ -976,7 +925,7 @@ export function UserDashboard() {
                             return a.member.name.localeCompare(b.member.name, 'ko');
                           })
                           .map((row, idx) => {
-                            const { member, rate, isNormal, att, winRate } = row;
+                            const { member, rate, att, winRate } = row;
                             return (
                               <tr key={member.id} className="text-center border-b hover:bg-[#FFF8FA]">
                                 <td className="px-2 py-1 border">{idx + 1}</td>
@@ -984,13 +933,6 @@ export function UserDashboard() {
                                 <td className="px-2 py-1 border text-green-700">{att.attended}</td>
                                 <td className="px-2 py-1 border">{rate}%</td>
                                 <td className="px-2 py-1 border">{winRate}%</td>
-                                <td className="px-2 py-1 border">
-                                  {isNormal ? (
-                                    <Badge style={{ backgroundColor: '#FFC1CC', color: '#030213' }}>정상</Badge>
-                                  ) : (
-                                    <Badge style={{ backgroundColor: '#FF4D4D', color: 'white' }}>우선순위</Badge>
-                                  )}
-                                </td>
                               </tr>
                             );
                           })}
@@ -998,9 +940,7 @@ export function UserDashboard() {
                     </table>
                   </div>
                   <div className="mt-4 text-xs text-gray-500">
-                    ※ 출석률 = (진행된 회차 중 참석) / (진행된 회차) × 100<br />
-                    ※ 우선순위: 출석률 50% 미만 & 하위 30%<br />
-                    ※ 정상: 출석률 50% 이상 또는 상위 30%
+                    ※ 출석률 = (진행된 회차 중 참석) / (진행된 회차) × 100
                   </div>
                 </div>
               </div>

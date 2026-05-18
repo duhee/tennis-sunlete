@@ -20,18 +20,21 @@ export function LoginPage() {
   // 이름에서 공백, 괄호, '마스터' 등 부가 텍스트 제거
   const normalizeName = (value: string) => value.replace(/\s+/g, '').replace(/\(.*?\)/g, '').replace(/마스터/g, '').trim();
 
-  const findUserByFlexibleName = (rawName: string) => {
+  const findUsersByFlexibleName = (rawName: string) => {
     const normalizedInput = normalizeName(rawName);
 
-    // 1. 완전 일치
-    const direct = getUserByName(rawName.trim());
-    if (direct) return direct;
-
-    // 2. normalizeName 처리 후 일치
-    return users.find((user: any) => {
+    const matched = users.filter((user: any) => {
       const target = normalizeName(user.name || '');
       return target === normalizedInput;
     });
+
+    if (matched.length > 0) {
+      return matched;
+    }
+
+    // 기존 동작 호환: 완전 일치가 있으면 후보로 포함
+    const direct = getUserByName(rawName.trim());
+    return direct ? [direct] : [];
   };
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -56,7 +59,15 @@ export function LoginPage() {
       return;
     }
 
-    const user = findUserByFlexibleName(normalized);
+    const candidates = findUsersByFlexibleName(normalized);
+
+    // 동일 이름이 회원/게스트로 중복될 수 있어, 회원+전화번호 일치 항목을 최우선으로 선택
+    const preferredUser =
+      candidates.find((item: any) => !item.isGuest && !item.id.startsWith('guest-') && item.phoneLast4 === phoneLast4) ||
+      candidates.find((item: any) => !item.isGuest && !item.id.startsWith('guest-')) ||
+      candidates[0];
+
+    const user = preferredUser;
     // console.log('[LoginPage] findUserByFlexibleName for "' + normalized + '"', { 
     //   found: !!user,
     //   name: user?.name,

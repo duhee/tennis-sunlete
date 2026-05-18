@@ -316,35 +316,23 @@ export const getMatchPointMetrics = (
   };
 };
 
-const getAttendanceRateByUserId = (userId: string, users: User[], seasonCode?: string): number => {
-  const user = users.find(item => item.id === userId);
-  // Unknown users (guests) get 0% so they still qualify in fairness sort
-  return user ? getAttendanceRate(user, seasonCode) : 0;
-};
-
-const sortRequestsByPolicy = (requests: AttendanceRequest[], users: User[], seasonCode?: string): AttendanceRequest[] => {
-  // Fairness policy: lower attendance rate first, then earlier click first, then guest always last.
+const sortRequestsByPolicy = (requests: AttendanceRequest[]): AttendanceRequest[] => {
+  // 선착순 정책: 요청 시각이 빠른 순으로만 정렬
   return [...requests].sort((a, b) => {
-    const userA = users.find(u => u.id === a.userId);
-    const userB = users.find(u => u.id === b.userId);
-    const isGuestA = userA?.isGuest ?? a.userId.startsWith('guest-');
-    const isGuestB = userB?.isGuest ?? b.userId.startsWith('guest-');
-    if (isGuestA !== isGuestB) {
-      // 정회원 우선, 게스트는 항상 뒤
-      return isGuestA ? 1 : -1;
+    const timeDiff = new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime();
+    if (timeDiff !== 0) {
+      return timeDiff;
     }
-    const rateDiff = getAttendanceRateByUserId(a.userId, users, seasonCode) - getAttendanceRateByUserId(b.userId, users, seasonCode);
-    if (rateDiff !== 0) {
-      return rateDiff;
-    }
-    return new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime();
+
+    // 동일 시각 요청 시 안정적인 순서를 위해 userId를 보조 키로 사용
+    return a.userId.localeCompare(b.userId, 'ko');
   });
 };
 
-export const deriveParticipantState = (schedule: WeeklyMatchSchedule, users: User[] = [], seasonCode?: string) => {
+export const deriveParticipantState = (schedule: WeeklyMatchSchedule, _users: User[] = [], _seasonCode?: string) => {
   // Only count 'attend' status for participants/waitlist
   const attendRequests = schedule.attendanceRequests.filter(row => row.status === 'attend');
-  const ranked = sortRequestsByPolicy(attendRequests, users, seasonCode);
+  const ranked = sortRequestsByPolicy(attendRequests);
   const participants = ranked.slice(0, schedule.maxParticipants).map(row => row.userId);
   const waitlist = ranked.slice(schedule.maxParticipants).map(row => row.userId);
 
