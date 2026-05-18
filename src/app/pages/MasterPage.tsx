@@ -779,6 +779,29 @@ export function MasterPage() {
           </div>
         </div>
 
+        <div className="mb-6 rounded-xl border border-dashed border-red-300 bg-red-50 p-4">
+          <div className={`${isMobilePreview ? 'space-y-3' : 'flex items-start justify-between gap-4'}`}>
+            <div>
+              <p className="text-sm font-semibold text-red-900">⚠️ 세션 관리</p>
+              <p className="mt-1 text-xs text-red-700">모든 사용자를 강제 로그아웃시킵니다. 신중하게 사용하세요.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const confirmed = window.confirm('정말 모든 멤버를 강제 로그아웃시키시겠습니까?\n(모든 로컬 저장 로그인 정보가 삭제됩니다)');
+                if (confirmed) {
+                  window.localStorage.removeItem('tennis-app-auth');
+                  window.location.reload();
+                  toast.success('모든 멤버가 강제 로그아웃되었습니다');
+                }
+              }}
+              className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors whitespace-nowrap"
+            >
+              모든 멤버 강제 로그아웃
+            </button>
+          </div>
+        </div>
+
         <div className="mb-6 rounded-xl border border-dashed border-gray-300 bg-[#FAFAFA] p-4">
           <div className={`${isMobilePreview ? 'space-y-3' : 'flex items-start justify-between gap-4'}`}>
             <div>
