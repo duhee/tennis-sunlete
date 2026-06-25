@@ -92,9 +92,9 @@ export function SharedBracket() {
   };
 
   // 데이터 필터링 시 안정성 확보 (날짜 비교 개선)
-  const confirmedMatches = doublesMatches.filter(
-    (match: any) => match.isConfirmed && shareDate && isSameDay(match.date, shareDate)
-  );
+  const confirmedMatches = doublesMatches
+    .filter((match: any) => match.isConfirmed && shareDate && isSameDay(match.date, shareDate))
+    .sort((a: any, b: any) => a.id.localeCompare(b.id));
 
   // 날짜 포맷팅 함수 (예시: 2026-04-12 -> 26년 4월 12일)
   const formatDate = (dateStr: string) => {
@@ -111,13 +111,15 @@ export function SharedBracket() {
   // 안전하게 사용자 데이터 매핑하는 헬퍼 함수
   const renderPlayerName = (id: string) => {
     const player = getUserById(id);
-    const isHighlighted = highlightPlayer && player?.name === highlightPlayer;
+    const normalizeName = (name: string) => name.replace(/\s+/g, '').replace(/\(.*?\)/g, '').trim().toLowerCase();
+    const isHighlighted = highlightPlayer && player?.name && 
+      normalizeName(player.name) === normalizeName(highlightPlayer);
 
     return (
       <p
         key={id}
         className="text-sm font-semibold leading-relaxed text-gray-900 break-words px-2 py-1 rounded w-max"
-        style={isHighlighted ? { backgroundColor: '#FFC1CC' } : {}}
+        style={isHighlighted ? { backgroundColor: '#FFC1CC', color: '#030213' } : {}}
       >
         {player?.name || '알 수 없음'}
       </p>

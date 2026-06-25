@@ -303,28 +303,13 @@ export async function reportLoginAttempt(details: {
     const { error } = await supabase.from('login_attempts').insert([payload]);
     
     if (error) {
-      // console.warn('[reportFailedLogin] 로그인 시도 기록 실패 (테이블 없을 수 있음):', error.message);
       return;
     }
-
-    // console.log('[reportFailedLogin] 로그인 시도 기록 완료');
   } catch (err) {
-    // console.error('[reportFailedLogin] 예외 발생:', err);
   }
 }
 
-export async function reportFailedLogin(details: {
-  inputName: string;
-  inputPhoneLast4: string;
-  reason: string;
-  foundInDb: boolean;
-  isGuest?: boolean;
-  isWithdrawn?: boolean;
-  userAgent?: string;
-  timestamp?: string;
-}): Promise<void> {
-  await reportLoginAttempt(details);
-}
+export const reportFailedLogin = reportLoginAttempt;
 
 export async function reportSharedBracketView(details: {
   bracketId?: string;

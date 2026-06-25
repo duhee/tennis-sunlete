@@ -215,6 +215,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const refetchAppData = async (): Promise<void> => {
+    try {
+      const serverData = await fetchAppData();
+      if (serverData) {
+        setData({
+          ...serverData,
+          users: recalculateUsersFromMatchResults(serverData.users, serverData.doublesMatches),
+        });
+      }
+    } catch (error) {
+      console.error('Failed to refetch app data:', error);
+    }
+  };
+
   // Supabase Realtime subscription: 다양한 테이블 변경 감지 (스코어, 출석, 스케줄)
   useEffect(() => {
     if (!hydrated) return;
@@ -224,7 +238,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       .on(
         'postgres_changes',
         {
-          event: '*', // INSERT, UPDATE, DELETE 모두 감지
+          event: '*',
           schema: 'public',
           table: 'doubles_matches',
         },
@@ -264,7 +278,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
   }, [hydrated]);
 
-  // attendance_requests 변경 시 attended_sessions 자동 재계산
+  const schedulesRef = useRef(data.schedules);
+  
+  useEffect(() => {
+    schedulesRef.current = data.schedules;
+  }, [data.schedules]);
+
   useEffect(() => {
     if (!hydrated) return;
 
@@ -291,7 +310,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       enqueueSave(next);
       return next;
     });
-  }, [data.schedules, hydrated]);
+  }, [schedulesRef.current, hydrated]);
 
   const commitData = (updater: (prev: PersistedData) => PersistedData) => {
     setData((prev: PersistedData) => {
@@ -532,20 +551,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         ),
       ],
     }));
-  };
-
-  const refetchAppData = async (): Promise<void> => {
-    try {
-      const serverData = await fetchAppData();
-      if (serverData) {
-        setData({
-          ...serverData,
-          users: recalculateUsersFromMatchResults(serverData.users, serverData.doublesMatches),
-        });
-      }
-    } catch (error) {
-      console.error('Failed to refetch app data:', error);
-    }
   };
 
   const recalculateAllAttendedSessions = React.useCallback((): void => {

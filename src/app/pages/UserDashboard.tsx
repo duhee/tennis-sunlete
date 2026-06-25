@@ -245,11 +245,13 @@ export function UserDashboard() {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     })();
 
-    const matches = allConfirmed.filter((m: any) => {
-      const d = new Date(m.date);
-      const s = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      return s === activeDateStr;
-    });
+    const matches = allConfirmed
+      .filter((m: any) => {
+        const d = new Date(m.date);
+        const s = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return s === activeDateStr;
+      })
+      .sort((a: any, b: any) => a.id.localeCompare(b.id));
 
     return { matches, showPreparingNotice: false };
   }, [doublesMatches, effectiveNow]);
