@@ -72,6 +72,7 @@ function getScheduleSeasonCode(schedule: { date: string; seasonCode?: string; id
 export function UserDashboard() {
     // 시즌 전체 회원 출석 현황 모달 상태
     const [showSeasonAttendanceModal, setShowSeasonAttendanceModal] = useState(false);
+  const [selectedAttendanceSeasonCode, setSelectedAttendanceSeasonCode] = useState<string>('');
   const { debugNow, effectiveNow } = useDebugNow();
 
     // 팝업 중복 방지용 고유 ID
@@ -147,6 +148,32 @@ export function UserDashboard() {
   // 이번 시즌 코드 추출 (가장 최근 일정 기준)
   const latestSchedule = useMemo(() => schedules.slice().sort((a, b) => (b.date > a.date ? 1 : -1))[0], [schedules]);
   const currentSeasonCode = latestSchedule ? getScheduleSeasonCode(latestSchedule) : undefined;
+
+  const availableAttendanceSeasons = useMemo(() => {
+    const set = new Set<string>();
+
+    users.forEach(user => {
+      (user.activeSeasons ?? []).forEach(season => set.add(season));
+    });
+
+    schedules.forEach(schedule => {
+      const seasonCode = getScheduleSeasonCode(schedule);
+      if (seasonCode) set.add(seasonCode);
+    });
+
+    return Array.from(set).sort().reverse();
+  }, [users, schedules]);
+
+  React.useEffect(() => {
+    if (selectedAttendanceSeasonCode) return;
+    if (currentSeasonCode) {
+      setSelectedAttendanceSeasonCode(currentSeasonCode);
+      return;
+    }
+    if (availableAttendanceSeasons.length > 0) {
+      setSelectedAttendanceSeasonCode(availableAttendanceSeasons[0]);
+    }
+  }, [selectedAttendanceSeasonCode, currentSeasonCode, availableAttendanceSeasons]);
   // 이번 시즌 멤버
   const seasonMembers = useMemo(
     () =>
@@ -194,6 +221,58 @@ export function UserDashboard() {
     });
     return map;
   }, [seasonMembers, progressedSchedules]);
+
+  const modalSeasonCode = selectedAttendanceSeasonCode || currentSeasonCode;
+  const modalSeasonMembers = useMemo(
+    () =>
+      typeof modalSeasonCode === 'string'
+        ? users.filter(
+            u =>
+              !u.isGuest &&
+              !u.isWithdrawn &&
+              Array.isArray(u.activeSeasons) &&
+              u.activeSeasons.includes(modalSeasonCode)
+          )
+        : [],
+    [users, modalSeasonCode]
+  );
+  const modalSeasonSchedules = useMemo(
+    () => schedules.filter(s => getScheduleSeasonCode(s) === modalSeasonCode),
+    [schedules, modalSeasonCode]
+  );
+  const modalProgressedSchedules = useMemo(
+    () => modalSeasonSchedules.filter(s => Array.isArray(s.participants) && s.participants.length > 0),
+    [modalSeasonSchedules]
+  );
+  const modalTotalProgressedSessions = modalProgressedSchedules.length;
+  const getModalProgressedAttendanceRate = (uid: string): number => {
+    const attended = modalProgressedSchedules.filter(
+      s => Array.isArray(s.participants) && s.participants.includes(uid)
+    ).length;
+    return Math.round((attended / (modalTotalProgressedSessions || 1)) * 100);
+  };
+  const modalMemberAttendanceMap = useMemo(() => {
+    const map: Record<string, { attended: number; absent: number; noResponse: number; total: number }> = {};
+    modalSeasonMembers.forEach(member => {
+      let attended = 0;
+      let absent = 0;
+      let noResponse = 0;
+      let total = 0;
+      modalProgressedSchedules.forEach(sch => {
+        const req = sch.attendanceRequests?.find((r: any) => r.userId === member.id);
+        if (!req) {
+          noResponse++;
+        } else if (req.status === 'attend') {
+          attended++;
+        } else if (req.status === 'absent') {
+          absent++;
+        }
+        total++;
+      });
+      map[member.id] = { attended, absent, noResponse, total };
+    });
+    return map;
+  }, [modalSeasonMembers, modalProgressedSchedules]);
 
   const confirmedMatchState = useMemo(() => {
     const now = effectiveNow;
@@ -881,9 +960,14 @@ export function UserDashboard() {
             <Button
               type="button"
               style={{ backgroundColor: '#F8F9FA', color: '#9CA3AF', border: '1px solid #E5E7EB', fontWeight: 500 }}
-              onClick={() => setShowSeasonAttendanceModal(true)}
+              onClick={() => {
+                if (!selectedAttendanceSeasonCode && currentSeasonCode) {
+                  setSelectedAttendanceSeasonCode(currentSeasonCode);
+                }
+                setShowSeasonAttendanceModal(true);
+              }}
             >
-              이번 시즌 전체 회원 출석 현황 보기
+              시즌별 전체 회원 출석 현황 보기
             </Button>
           </div>
         )}
@@ -900,8 +984,23 @@ export function UserDashboard() {
                   ×
                 </button>
                 <div className="p-4 md:p-6 flex-1 flex flex-col">
-                  <h2 className="text-lg font-bold mb-2 text-[#C2185B]">이번 시즌 전체 회원 출석 현황</h2>
-                  <div className="mb-2 text-xs text-gray-500">진행된 회차: <span className="font-bold text-[#C2185B]">{totalProgressedSessions}</span></div>
+                  <h2 className="text-lg font-bold mb-2 text-[#C2185B]">시즌별 전체 회원 출석 현황</h2>
+                  <div className="mb-3 flex items-center gap-2">
+                    <label htmlFor="attendance-season-select" className="text-xs text-gray-600">시즌 선택</label>
+                    <select
+                      id="attendance-season-select"
+                      value={modalSeasonCode ?? ''}
+                      onChange={e => setSelectedAttendanceSeasonCode(e.target.value)}
+                      className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700"
+                    >
+                      {availableAttendanceSeasons.map(season => (
+                        <option key={season} value={season}>
+                          {season}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mb-2 text-xs text-gray-500">진행된 회차: <span className="font-bold text-[#C2185B]">{modalTotalProgressedSessions}</span></div>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-xs border">
                       <thead>
@@ -914,12 +1013,12 @@ export function UserDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {seasonMembers
+                        {modalSeasonMembers
                           .map(member => ({
                             member,
-                            rate: getProgressedAttendanceRate(member.id),
-                            att: memberAttendanceMap[member.id] || { attended: 0, absent: 0, noResponse: 0, total: 0 },
-                            winRate: getWinRate(member, currentSeasonCode),
+                            rate: getModalProgressedAttendanceRate(member.id),
+                            att: modalMemberAttendanceMap[member.id] || { attended: 0, absent: 0, noResponse: 0, total: 0 },
+                            winRate: getWinRate(member, modalSeasonCode),
                           }))
                           .sort((a, b) => {
                             if (b.rate !== a.rate) return b.rate - a.rate;
