@@ -458,6 +458,9 @@ export function DrawGenerator({
             const teamB = match.teamB.map(id => getUserById(id)).filter(Boolean) as UserType[];
 
             const allPlayers = [...teamA, ...teamB];
+            const playingIds = new Set([...match.teamA, ...match.teamB]);
+            const restingPlayers = participantUsers.filter(p => !playingIds.has(p.id));
+
             const nonGuestAvgRate = (() => {
               const ng = allPlayers.filter(p => !p.isGuest);
               return ng.length > 0 ? ng.reduce((s, p) => s + getWinRate(p), 0) / ng.length : 50;
@@ -566,9 +569,26 @@ export function DrawGenerator({
                     ))}
                   </div>
                 </div>
+
+                {restingPlayers.length > 0 && (
+                  <div className="mt-3 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-gray-500">쉬는 사람</span>
+                    {restingPlayers.map(player => (
+                      <Badge
+                        key={player.id}
+                        className="text-xs py-0"
+                        style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}
+                      >
+                        {player.name}
+                        {player.isGuest && ' (게스트)'}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
+
         </div>
       </CardContent>
     </Card>

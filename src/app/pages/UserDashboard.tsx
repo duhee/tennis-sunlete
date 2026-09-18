@@ -337,6 +337,11 @@ export function UserDashboard() {
   const confirmedMatches = confirmedMatchState.matches;
   const showBracketPreparingNotice = confirmedMatchState.showPreparingNotice;
   const confirmedDate = confirmedMatches[0]?.date;
+  // 확정 대진에 등장하는 전체 선수 = 그날의 참가자 풀
+  const bracketParticipantIds = useMemo(
+    () => Array.from(new Set(confirmedMatches.flatMap(match => [...match.teamA, ...match.teamB]))),
+    [confirmedMatches]
+  );
   const upcomingSchedules = useMemo(
     () => {
       const now = effectiveNow;
@@ -531,6 +536,11 @@ export function UserDashboard() {
             {confirmedMatches.map((match, idx) => {
               const teamAUsers = match.teamA.map((id: string) => getUserById(id)).filter(Boolean);
               const teamBUsers = match.teamB.map((id: string) => getUserById(id)).filter(Boolean);
+              const playingIds = new Set<string>([...match.teamA, ...match.teamB]);
+              const restingUsers = bracketParticipantIds
+                .filter(id => !playingIds.has(id))
+                .map(id => getUserById(id))
+                .filter(Boolean);
               const userInMatch = isUserInMatch(match);
               const hasSavedScore = typeof match.scoreA === 'number' && typeof match.scoreB === 'number';
 
@@ -616,6 +626,21 @@ export function UserDashboard() {
                             </div>
                           </div>
                         </div>
+
+                        {restingUsers.length > 0 && (
+                          <div className="mt-3 pt-3 border-t flex items-center gap-2 flex-wrap">
+                            <span className="text-[11px] font-semibold tracking-widest text-gray-400">쉬는 사람</span>
+                            {restingUsers.map((player: any) => (
+                              <span
+                                key={player!.id}
+                                className="text-xs font-medium px-2 py-0.5 rounded"
+                                style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}
+                              >
+                                {player!.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {userInMatch && (

@@ -96,6 +96,16 @@ export function SharedBracket() {
     .filter((match: any) => match.isConfirmed && shareDate && isSameDay(match.date, shareDate))
     .sort((a: any, b: any) => a.id.localeCompare(b.id));
 
+  // 해당 날짜 대진에 등장하는 전체 선수 = 그날의 참가자 풀
+  const participantIds = Array.from(
+    new Set(confirmedMatches.flatMap((match: any) => [...match.teamA, ...match.teamB]))
+  ) as string[];
+
+  const getRestingIds = (match: any) => {
+    const playingIds = new Set<string>([...match.teamA, ...match.teamB]);
+    return participantIds.filter(id => !playingIds.has(id));
+  };
+
   // 날짜 포맷팅 함수 (예시: 2026-04-12 -> 26년 4월 12일)
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '날짜 정보 없음';
@@ -225,6 +235,21 @@ export function SharedBracket() {
 
                         </div>
                       </div>
+
+                      {getRestingIds(match).length > 0 && (
+                        <div className="mt-3 flex items-center gap-2 flex-wrap">
+                          <span className="text-[11px] font-semibold tracking-widest text-gray-400">쉬는 사람</span>
+                          {getRestingIds(match).map((id: string) => (
+                            <span
+                              key={id}
+                              className="text-xs font-medium px-2 py-0.5 rounded"
+                              style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}
+                            >
+                              {getUserById(id)?.name || '알 수 없음'}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
